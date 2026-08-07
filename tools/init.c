@@ -40,6 +40,7 @@ static void say(const char *text)
 		(void)!write(serial, text, len);
 }
 
+/* The CJK literals below are the text whose rendering is under test. */
 static void show_cjk(void)
 {
 	say("Simplified:  中文控制台显示测试\n");

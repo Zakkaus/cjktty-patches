@@ -69,15 +69,42 @@ def ink(block: bytes) -> int:
     return sum(1 for value in block if value > 0x40)
 
 
+def lit_box(pixels: bytes, width: int, height: int) -> tuple[int, int, int, int]:
+    xs: list[int] = []
+    ys: list[int] = []
+    for y in range(height):
+        row = pixels[y * width * 3 : (y + 1) * width * 3]
+        for x in range(width):
+            if max(row[x * 3 : x * 3 + 3]) > 0x40:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        raise CheckFailed("the screen is blank; rotation painted nothing")
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def check_rotated(path: Path) -> str:
-    _, _, pixels = read_ppm(path)
+    width, height, pixels = read_ppm(path)
     lit = ink(pixels)
     if lit < ROTATED_MIN_INK:
         raise CheckFailed(
             f"the rotated console drew {lit} lit subpixels, under {ROTATED_MIN_INK}; "
             "rotation painted nothing"
         )
-    return f"the rotated console drew a line of text ({lit} lit subpixels)"
+    left, top, right, bottom = lit_box(pixels, width, height)
+    box_width = right - left + 1
+    box_height = bottom - top + 1
+    # A line of text is long along the reading direction. Rotated by 90 degrees
+    # it stands taller than it is wide, which an unrotated line can never do.
+    if box_height <= box_width:
+        raise CheckFailed(
+            f"the drawn text is {box_width} by {box_height} pixels, wider than tall; "
+            "the console did not rotate"
+        )
+    return (
+        f"the rotated console drew a line running down the screen "
+        f"({box_width} by {box_height} pixels, {lit} lit subpixels)"
+    )
 
 
 def check(path: Path) -> str:

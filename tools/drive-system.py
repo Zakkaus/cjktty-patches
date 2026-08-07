@@ -1,10 +1,9 @@
 """Drive the system test over the serial console.
 
-Waits for systemd to reach a login, then exercises the console paths the patch
-touches -- font reload, VT switch, rotation, and the fbcon release path -- then
-shuts the machine down. Everything is asserted from what the guest
-prints, not from a human looking at the screen; the screenshot is taken at the
-end as an artifact.
+Waits for systemd to reach a login, exercises the console paths the patch
+touches -- font reload, VT switch, rotation and the fbcon release path -- then
+shuts the machine down. Every step is asserted from what the guest prints, not
+from a human looking at the screen; the screenshots are artifacts for review.
 
 Usage: drive-system.py <output-directory> <timeout-seconds>
 """
@@ -110,6 +109,7 @@ def main(out: Path, timeout: float) -> int:
 
         # fbcon_rotate_font_utf runs only under console rotation, and porting to
         # a new kernel rewrites it more often than any other part of the patch.
+        # The CJK line written here is the text under test.
         console.run("echo 1 > /sys/class/graphics/fbcon/rotate_all; sleep 2")
         console.run("printf '\\033[2J\\033[H' > /dev/tty1; "
                     "echo 'rotated:  中文控制台显示测试' > /dev/tty1")
@@ -119,10 +119,14 @@ def main(out: Path, timeout: float) -> int:
 
         # Unbinding fbcon runs fbcon_release, which is where fontbuffer and
         # fontbuffer_utf are freed. Nothing else in this test reaches it.
-        console.run("for c in /sys/class/vtconsole/vtcon*; do "
-                    "grep -q 'frame buffer' $c/name && echo 0 > $c/bind; done; sleep 2")
-        console.run("for c in /sys/class/vtconsole/vtcon*; do "
-                    "grep -q 'frame buffer' $c/name && echo 1 > $c/bind; done; sleep 2")
+        # The trailing test is what makes this an assertion: a loop that matches
+        # no console would otherwise succeed and the release path go unrun.
+        bind = ("n=0; for c in /sys/class/vtconsole/vtcon*; do "
+                "grep -q 'frame buffer' $c/name && {{ echo {} > $c/bind; n=$((n+1)); }}; "
+                "done; sleep 2; [ $n -gt 0 ]")
+        console.run(bind.format(0))
+        console.run(bind.format(1))
+        console.run("dmesg | grep -q 'switching to colour dummy device'")
 
         console.send("echo BADCOUNT=$(dmesg | grep -ciE 'oops|BUG:|call trace')")
         bad = console.expect(r"BADCOUNT=\d+", timeout=30.0)
@@ -133,10 +137,7 @@ def main(out: Path, timeout: float) -> int:
             raise Failed(f"the kernel log holds {count} oops or warning lines")
 
         # check-console.py reads fixed rows, so lay the screen out the way init.c
-        # does: clear, one title line, then the label and the CJK text. The CJK
-        # literal is the text whose rendering is under test.
-        # The shell runs on the serial port, so the text has to be written to the
-        # framebuffer console explicitly. The CJK literal is the text under test.
+        # does: clear, a title line, then the label and the CJK text under test.
         console.run("printf '\\033[2J\\033[H' > /dev/tty1; "
                     "echo 'cjktty system test' > /dev/tty1; "
                     "echo 'Simplified:  中文控制台显示测试' > /dev/tty1")
