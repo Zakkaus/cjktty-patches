@@ -1,10 +1,10 @@
 #!/bin/bash
 # Regenerate a cjktty patch from a patched tree.
 #
-# The file list comes from `diff --git` lines, not from `+++`: upstream creates
-# lib/fonts/font_cjk_32x32.h as an empty placeholder, and git emits no ---/+++
-# pair for an empty new file. Missing it breaks the build with
-# CONFIG_FONT_CJK_32x32=y.
+# The file list is the union of `diff --git` and `--- a/` lines. Neither alone
+# is enough: an empty new file such as lib/fonts/font_cjk_32x32.h carries no
+# ---/+++ pair, and the older patches in this collection are plain diff output
+# with a single `diff --git` line for the whole file.
 #
 # Usage: regen.sh <pristine-tree> <patched-tree> <source-patch> <output>
 set -u
@@ -15,7 +15,10 @@ source_patch=$3
 out=$4
 
 : > "$out"
-grep '^diff --git a/' "$source_patch" | sed 's|^diff --git a/||;s| b/.*||' | sort -u |
+{
+	grep '^diff --git a/' "$source_patch" | sed 's|^diff --git a/||;s| b/.*||'
+	grep '^--- a/' "$source_patch" | sed 's|^--- a/||;s|[[:space:]].*||'
+} | sort -u |
 while read -r f; do
 	old="$src/$f"
 	if [ ! -f "$old" ] && [ ! -s "$work/$f" ]; then
