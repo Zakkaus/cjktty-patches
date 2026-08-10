@@ -1,4 +1,4 @@
-[English](README.md) | [正體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [正體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 # cjktty-patches
 
@@ -49,7 +49,7 @@ patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 
 ## 许可证
 
-补丁采用 [GPL-2.0](LICENSE)，与补丁文件中的许可证声明一致。
+补丁采用 [GPL-2.0-only](LICENSE)，与补丁所新增文件中的许可证声明一致。
 
 ## 致谢
 
