@@ -11,7 +11,12 @@ A rotated console moves those rows, so `--rotated` drops the cell comparison and
 asks only that the screen carries the ink of a drawn line. Rotation runs
 fbcon_rotate_font_utf, and a failure there paints nothing at all.
 
-Usage: check-console.py [--rotated] <screenshot.ppm>
+The cell size follows the base console font, not the CJK font: 8x16 by default,
+16x32 when the kernel was built for the 32x32 CJK font with the 8x16 base off.
+Sampling a 16x32 screen with 8x16 cells lands between glyphs and reports a
+blank cell on a working kernel.
+
+Usage: check-console.py [--rotated] [--cell WxH] <screenshot.ppm>
 """
 
 from __future__ import annotations
@@ -19,8 +24,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-CELL_WIDTH = 8
-CELL_HEIGHT = 16
+DEFAULT_CELL = (8, 16)
 #: init.c writes a title line first, then Simplified on the next row.
 CJK_ROW = 1
 #: "Simplified:  " is thirteen columns; the CJK text starts after it.
@@ -56,12 +60,15 @@ def read_ppm(path: Path) -> tuple[int, int, bytes]:
     return int(fields[1]), int(fields[2]), data[at + 1 :]
 
 
-def glyph(pixels: bytes, width: int, row: int, column: int) -> bytes:
+def glyph(
+    pixels: bytes, width: int, row: int, column: int, cell: tuple[int, int]
+) -> bytes:
     """The pixels of one glyph cell, as a flat block."""
+    cell_width, cell_height = cell
     out = bytearray()
-    for y in range(row * CELL_HEIGHT, (row + 1) * CELL_HEIGHT):
-        start = (y * width + column * CELL_WIDTH) * 3
-        out += pixels[start : start + CELL_WIDTH * GLYPH_CELLS * 3]
+    for y in range(row * cell_height, (row + 1) * cell_height):
+        start = (y * width + column * cell_width) * 3
+        out += pixels[start : start + cell_width * GLYPH_CELLS * 3]
     return bytes(out)
 
 
@@ -107,13 +114,14 @@ def check_rotated(path: Path) -> str:
     )
 
 
-def check(path: Path) -> str:
+def check(path: Path, cell: tuple[int, int] = DEFAULT_CELL) -> str:
     width, height, pixels = read_ppm(path)
-    if height < (CJK_ROW + 1) * CELL_HEIGHT:
+    cell_height = cell[1]
+    if height < (CJK_ROW + 1) * cell_height:
         raise CheckFailed(f"{path} is only {height} pixels tall")
 
-    first = glyph(pixels, width, CJK_ROW, FIRST_COLUMN)
-    second = glyph(pixels, width, CJK_ROW, FIRST_COLUMN + GLYPH_CELLS)
+    first = glyph(pixels, width, CJK_ROW, FIRST_COLUMN, cell)
+    second = glyph(pixels, width, CJK_ROW, FIRST_COLUMN + GLYPH_CELLS, cell)
 
     if ink(first) == 0 or ink(second) == 0:
         raise CheckFailed("the CJK cells are blank; no glyph was drawn")
@@ -122,14 +130,36 @@ def check(path: Path) -> str:
     return f"CJK glyphs differ and carry ink ({ink(first)} and {ink(second)} lit subpixels)"
 
 
+def parse_cell(text: str) -> tuple[int, int]:
+    try:
+        width, height = (int(part) for part in text.lower().split("x", 1))
+    except ValueError:
+        raise SystemExit(f"--cell wants WxH, not {text!r}")
+    if width < 1 or height < 1:
+        raise SystemExit(f"--cell wants positive numbers, not {text!r}")
+    return width, height
+
+
 if __name__ == "__main__":
     arguments = sys.argv[1:]
     rotated = "--rotated" in arguments
     if rotated:
         arguments.remove("--rotated")
+    cell = DEFAULT_CELL
+    if "--cell" in arguments:
+        at = arguments.index("--cell")
+        if at + 1 >= len(arguments):
+            raise SystemExit("--cell wants a WxH argument")
+        cell = parse_cell(arguments[at + 1])
+        del arguments[at : at + 2]
     if len(arguments) != 1:
-        raise SystemExit("usage: check-console.py [--rotated] <screenshot.ppm>")
+        raise SystemExit(
+            "usage: check-console.py [--rotated] [--cell WxH] <screenshot.ppm>"
+        )
     try:
-        print((check_rotated if rotated else check)(Path(arguments[0])))
+        if rotated:
+            print(check_rotated(Path(arguments[0])))
+        else:
+            print(check(Path(arguments[0]), cell))
     except CheckFailed as error:
         raise SystemExit(f"console check failed: {error}")
