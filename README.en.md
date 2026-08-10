@@ -34,11 +34,9 @@ To use the 32x32 font, also apply its data patch:
 patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 ```
 
-Then enable `CONFIG_FONT_CJK_32x32=y`. Without the data patch, this option
-compiles 8 MiB of zeros, which is why it now defaults off.
+Then enable `CONFIG_FONT_CJK_32x32=y`. The option defaults off.
 
-A framebuffer console is required. `vgacon` cannot display CJK because its font
-holds only 256 glyphs.
+A framebuffer console is required; `vgacon` cannot display CJK.
 
 ## History
 

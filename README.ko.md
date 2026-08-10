@@ -31,9 +31,9 @@ patch -p1 --fuzz=0 < ../cjktty-patches/v6.x/cjktty-6.18.patch
 patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 ```
 
-그런 다음 `CONFIG_FONT_CJK_32x32=y`를 활성화합니다. 데이터 패치를 적용하지 않으면 이 옵션은 8 MiB의 0으로만 이루어진 데이터를 컴파일하므로 현재 기본값은 비활성화입니다.
+그런 다음 `CONFIG_FONT_CJK_32x32=y` 를 활성화합니다. 이 옵션은 기본적으로 비활성화되어 있습니다.
 
-프레임버퍼 콘솔이 필요합니다. `vgacon`의 글꼴에는 글리프를 256개만 저장할 수 있으므로 CJK를 표시할 수 없습니다.
+프레임버퍼 콘솔이 필요합니다. `vgacon` 은 CJK 를 표시할 수 없습니다.
 
 ## 역사
 
