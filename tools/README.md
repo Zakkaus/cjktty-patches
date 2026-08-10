@@ -154,3 +154,21 @@ unique marker because the stage3 shell wraps its prompt in OSC 133 sequences.
 `init.c` is the initramfs init for `test-patch.sh`: it mounts devtmpfs itself,
 since `CONFIG_DEVTMPFS_MOUNT` applies only to a real root, then prints the CJK
 lines the screenshot is taken of.
+
+## test-stress.sh
+
+`tools/test-stress.sh <version> [patch ...]` builds the patch with KASAN,
+kmemleak, lockdep and `DEBUG_ATOMIC_SLEEP`, then cycles `setfont`, `chvt`,
+console rotation, an fbcon unbind and rebind, a console resize and a burst of
+CJK output. `test-system.sh` performs each of those once; a leak on the release
+path or a lock taken in the wrong order only appears when they repeat.
+
+The verdict comes from `tools/stress-verdict.py`, which strips the shell's own
+echo of the grep command before counting. Counting the raw serial log reports
+the pattern itself as a finding.
+
+Proven to fail: removing one `kvfree(par->fontbuffer_utf)` from
+`fbcon_release()` makes kmemleak report `unreferenced object` of 2,097,152
+bytes, exactly the 16x16 font buffer, and the script exits 1.
+
+The guest needs 4 GiB because KASAN roughly triples the kernel's memory use.
