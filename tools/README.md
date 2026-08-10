@@ -93,6 +93,33 @@ file that follows.
 Prefer editing a patch in place over regenerating it. A regenerated 12 MB file
 hides a two-line change from review.
 
+## gen-font.py
+
+```
+tools/gen-font.py --size 16 --base-font linux/lib/fonts/font_8x16.c \
+  unifont-15.1.04.hex > font_cjk_16x16.h
+tools/gen-font.py --size 32 --base-font linux/lib/fonts/font_ter16x32.c \
+  unifont-15.1.04.hex > font_cjk_32x32.h
+```
+
+Generates the two-cell BMP layout used by cjktty. The first 256 halfwidth
+glyphs come from the named Linux base font; `font_ter16x32.c` is derived from
+Terminus. Remaining glyphs come from the official GNU Unifont `.hex` release.
+The script determines halfwidth versus fullwidth from each hex payload, not the
+codepoint, and doubles both axes for 32x32 output. Use
+`font/precompiled/unifont-<version>.hex` from the project's
+[official release tarball](https://unifoundry.com/pub/unifont/). Both current
+arrays match Unifont 15.1.04; later whole-font updates superseded the 13.0.06
+source named by the first 32x32 changelog entry.
+
+Pass `--compare` with a generated header or a cjktty patch to verify the data
+without writing the generated array:
+
+```
+tools/gen-font.py --size 16 --base-font linux/lib/fonts/font_8x16.c \
+  --compare v6.x/cjktty-6.18.patch unifont-15.1.04.hex
+```
+
 ## check-console.py
 
 ```
