@@ -5,6 +5,7 @@ import argparse
 from itertools import zip_longest
 from pathlib import Path
 import re
+import struct
 import sys
 
 
@@ -13,6 +14,8 @@ BASE_GLYPHS = 256
 BYTE = re.compile(r"\b0x([0-9a-fA-F]{2})\b")
 HEX_LINE = re.compile(r"([0-9a-fA-F]{4,6}):([0-9a-fA-F]+)")
 SPDX = {16: "GPL-2.0", 32: "OFL-1.1"}
+PSF2_MAGIC = 0x864AB572
+PSF2_HEADER_SIZE = 32
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,7 +42,13 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         metavar="FILE",
-        help="write the generated header instead of standard output",
+        help="write the generated font instead of standard output",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("header", "psf2"),
+        default="header",
+        help="output a C header (default) or a loadable PSF2 font",
     )
     return parser.parse_args()
 
@@ -139,6 +148,28 @@ def format_header(data: bytes, size: int) -> str:
     return "\n".join(lines) + "\n"
 
 
+def format_psf2(data: bytes, size: int) -> bytes:
+    width = size // 2
+    height = size
+    charsize = (width + 7) // 8 * height
+    glyphs = BMP_LIMIT * 2
+    if len(data) != glyphs * charsize:
+        raise ValueError("generated data does not fit the cjktty PSF2 layout")
+
+    header = struct.pack(
+        "<8I",
+        PSF2_MAGIC,
+        0,
+        PSF2_HEADER_SIZE,
+        0,
+        glyphs,
+        charsize,
+        height,
+        width,
+    )
+    return header + data
+
+
 def read_reference(path: Path, size: int) -> bytes:
     text = path.read_text(encoding="utf-8")
     marker = f"+++ b/lib/fonts/font_cjk_{size}x{size}.h"
@@ -207,7 +238,15 @@ def main() -> int:
     args = parse_args()
     try:
         data = generate(args.hex_file, args.base_font, args.size)
-        if args.output:
+        if args.format == "psf2":
+            if args.compare:
+                raise ValueError("--compare only accepts C header output")
+            output = format_psf2(data, args.size)
+            if args.output:
+                args.output.write_bytes(output)
+            else:
+                sys.stdout.buffer.write(output)
+        elif args.output:
             args.output.write_text(format_header(data, args.size), encoding="ascii")
         elif not args.compare:
             sys.stdout.write(format_header(data, args.size))

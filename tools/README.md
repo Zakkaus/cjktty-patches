@@ -145,6 +145,9 @@ tools/gen-font.py --size 16 --base-font linux/lib/fonts/font_8x16.c \
   unifont-15.1.04.hex > font_cjk_16x16.h
 tools/gen-font.py --size 32 --base-font linux/lib/fonts/font_ter16x32.c \
   unifont-15.1.04.hex > font_cjk_32x32.h
+tools/gen-font.py --format psf2 --size 16 \
+  --base-font linux/lib/fonts/font_8x16.c --output cjk-16.psf \
+  unifont-15.1.04.hex
 ```
 
 Generates the two-cell BMP layout used by cjktty. The first 256 halfwidth
@@ -157,6 +160,10 @@ codepoint, and doubles both axes for 32x32 output. Use
 arrays match Unifont 15.1.04; later whole-font updates superseded the 13.0.06
 source named by the first 32x32 changelog entry.
 
+The default output is the C header used by the existing patches. The `psf2`
+format wraps the same bytes as 131,072 half-cell glyphs for the loadable-font
+prototype.
+
 Pass `--compare` with a generated header or a cjktty patch to verify the data
 without writing the generated array:
 
@@ -164,6 +171,26 @@ without writing the generated array:
 tools/gen-font.py --size 16 --base-font linux/lib/fonts/font_8x16.c \
   --compare v6.x/cjktty-6.18.patch unifont-15.1.04.hex
 ```
+
+## loadable-font prototype
+
+```
+gcc -O2 -o load-cjk-font tools/load-cjk-font.c
+./load-cjk-font cjk-16.psf /dev/tty0
+
+CJKTTY_LAB=/path/to/lab JOBS=8 \
+  tools/test-loadable-font.sh 6.18.44 v6.x/cjktty-6.18.patch
+```
+
+`load-cjk-font.c` validates the cjktty PSF2 layout and submits it with
+`KD_FONT_OP_SET_TALL`. An unmodified kernel rejects its 131,072 glyphs.
+`loadable-font-poc.patch` relaxes that limit for Linux 6.18.44 and makes the
+multi-megabyte user-font allocations vmalloc-capable. `test-loadable-font.sh`
+builds that scratch kernel without either built-in CJK font, confirms CJK is
+missing before the ioctl, then confirms the same screen cells render after the
+external font is loaded. This is proof code, not the proposed lifetime model;
+the proof patch's retained 4 MiB size limit admits 8x16 but not 16x32. See
+`docs/loadable-font.md`.
 
 ## check-console.py
 
