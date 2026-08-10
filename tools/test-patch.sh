@@ -1,10 +1,11 @@
 #!/bin/bash
 # Apply a cjktty patch, build the kernel, boot it and check the console font.
 #
-# Usage: tools/test-patch.sh <kernel-version> [patch-file]
+# Usage: tools/test-patch.sh <kernel-version> [patch-file ...]
 #
 #   tools/test-patch.sh 6.18.43
 #   tools/test-patch.sh 7.0 v7.x/cjktty-7.0.patch
+#   tools/test-patch.sh 6.18.44 cjktty-font-v2.patch cjktty-code-v2-6.18.patch
 #
 # A patch passes only when all three succeed: it applies with no fuzz, the
 # kernel builds, and the booted console reports the CJK font. Artifacts stay in
@@ -21,19 +22,23 @@ boot_timeout=${BOOT_TIMEOUT:-120}
 die() { echo "$*" >&2; exit 1; }
 step() { printf '\n== %s\n' "$*"; }
 
-[ $# -ge 1 ] || die "usage: $0 <kernel-version> [patch-file]"
+[ $# -ge 1 ] || die "usage: $0 <kernel-version> [patch-file ...]"
 version=$1
 series=${version%%.*}
 minor=$(echo "$version" | cut -d. -f2)
+shift
 
-patch_file=${2:-}
-if [ -z "$patch_file" ]; then
+patch_files=("$@")
+if [ ${#patch_files[@]} -eq 0 ]; then
 	for candidate in "$repo/v$series.x/cjktty-$version.patch" \
 			 "$repo/v$series.x/cjktty-$series.$minor.patch"; do
-		[ -f "$candidate" ] && { patch_file=$candidate; break; }
+		[ -f "$candidate" ] && { patch_files=("$candidate"); break; }
 	done
 fi
-[ -n "$patch_file" ] && [ -f "$patch_file" ] || die "no patch for $version"
+[ ${#patch_files[@]} -gt 0 ] || die "no patch for $version"
+for patch_file in "${patch_files[@]}"; do
+	[ -f "$patch_file" ] || die "patch not found: $patch_file"
+done
 
 for tool in gcc cpio qemu-system-x86_64 patch; do
 	command -v "$tool" >/dev/null || die "$tool is not installed"
@@ -56,11 +61,17 @@ if [ ! -d "$pristine" ]; then
 	tar -xf "$tarball" -C "$lab" || die "cannot unpack $tarball"
 fi
 
-step "apply $(basename "$patch_file")"
+patch_names=()
+for patch_file in "${patch_files[@]}"; do
+	patch_names+=("$(basename "$patch_file")")
+done
+step "apply ${patch_names[*]}"
 rm -rf "$tree"
 cp -a "$pristine" "$tree"
-patch -d "$tree" -p1 --fuzz=0 --silent < "$patch_file" ||
-	die "$(basename "$patch_file") does not apply to $version with fuzz=0"
+for patch_file in "${patch_files[@]}"; do
+	patch -d "$tree" -p1 --fuzz=0 --silent < "$patch_file" ||
+		die "$(basename "$patch_file") does not apply to $version with fuzz=0"
+done
 find "$tree" -name '*.orig' -delete
 
 step "configure"
