@@ -50,11 +50,9 @@ A framebuffer console is required; `vgacon` cannot display CJK.
 
 ### 2026.8.11 / 6.12.102, 6.18, 7.1.7
 
-- Default `CONFIG_FONT_CJK_32x32` off. The base patch ships an empty
-  `font_cjk_32x32.h` while the option defaulted on, so a build that took the
-  default compiled 8 MiB of zeros: every glyph blank, no error anywhere, and the
-  console silently drawing nothing where CJK should be. Present since the 32x32
-  data moved into its own patch in 2021.
+- Default `CONFIG_FONT_CJK_32x32` off. The base patch carries an empty font
+  there, so the default compiled 8 MiB of zeros and reported nothing, from 2021
+  until now.
 - Add `tools/gen-font.py`, which reproduces both font arrays byte for byte from
   a GNU Unifont `.hex` and the mainline base font. The changelog named Unifont
   13.0.06 for the 32x32 data; it is 15.1.04.

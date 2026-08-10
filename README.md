@@ -45,7 +45,17 @@ patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 
 ## 变更记录
 
-变更记录未翻译，请参阅[英文 README 的 Changes 章节](README.en.md#changes)。
+### 2026.8.11 / 6.12.102、6.18、7.1.7
+
+- `CONFIG_FONT_CJK_32x32` 改为默认关闭。基础补丁中该字模为空，默认开启时把 8 MiB 全零编入内核且不报错，自 2021 年起如此。
+- 新增 `tools/gen-font.py`，从 GNU Unifont 的 `.hex` 与主线基础字体逐字节重建两份字模数据。变更记录原本记为 Unifont 13.0.06，实际是 15.1.04。
+- 新增维护版本的拆分形式：一份共用的 11.8 MB 字模补丁，以及每个内核约 800 行的代码补丁。原有文件未改动。
+- 新增 `tools/test-stress.sh`，在 KASAN、kmemleak 与 lockdep 下反复执行 `setfont`、`chvt`、旋转与 fbcon 重新绑定。
+- 两层测试新增 `--cjk32`，让 32x32 路径被测试而不是被关闭；控制台检查新增 `--cell`，采样格随基础字体变化。
+- 新增 `tools/make-boot-testvm.sh` 与 `test-system.sh --bootloader`，经 GRUB 与 dracut initramfs 从磁盘启动，而不是用 QEMU 的 `-kernel`。
+- 新增持续集成、`LICENSE`、使用说明，以及日语、韩语、正体中文与简体中文的 README。
+
+更早的记录未翻译，请参阅[英文 README 的 Changes 章节](README.en.md#changes)。
 
 ## 许可证
 
