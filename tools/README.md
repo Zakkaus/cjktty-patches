@@ -9,7 +9,7 @@ artifacts go to `$CJKTTY_LAB`, which defaults to `../lab`.
 ```
 tools/test-patch.sh 6.18.43
 tools/test-patch.sh 7.0 v7.x/cjktty-7.0.patch
-tools/test-patch.sh 6.18.44 cjktty-font-v2.patch v6.x/cjktty-code-v2-6.18.patch
+tools/test-patch.sh 6.18.44 cjktty-font-unifont-15.1.04.patch v6.x/cjktty-code-6.18.patch
 ```
 
 Downloads the kernel if needed, then runs three checks. A patch is only finished
@@ -38,7 +38,7 @@ a monolithic patch.
 ```
 tools/make-testvm.sh            # once: builds lab/testvm/base.img from a stage3
 tools/test-system.sh 6.18.43
-tools/test-system.sh 6.18.44 cjktty-font-v2.patch v6.x/cjktty-code-v2-6.18.patch
+tools/test-system.sh 6.18.44 cjktty-font-unifont-15.1.04.patch v6.x/cjktty-code-6.18.patch
 
 tools/make-boot-testvm.sh       # once: adds an ESP, GRUB and dracut
 tools/test-system.sh --bootloader 6.18.43
@@ -105,9 +105,20 @@ most files, while an empty new file can have only a `diff --git` header.
 Apply the shared font patch before the code patch for the target kernel:
 
 ```
-patch -d linux -p1 --fuzz=0 < cjktty-font-v2.patch
-patch -d linux -p1 --fuzz=0 < v6.x/cjktty-code-v2-6.18.patch
+patch -d linux -p1 --fuzz=0 < cjktty-font-unifont-15.1.04.patch
+patch -d linux -p1 --fuzz=0 < v6.x/cjktty-code-6.18.patch
 ```
+
+## Naming a split patch
+
+The font patch carries the Unifont release it was generated from, because a
+published filename is frozen: five ebuilds in `gentoo-zh/overlay` fetch patches
+by raw URL, so a font update adds `cjktty-font-unifont-<version>.patch` beside
+the old one rather than replacing it. `tools/gen-font.py` produces that data, so
+the name is checkable rather than a label.
+
+A code patch needs no version of its own. It lives under `v<major>.x/` and its
+filename already names the kernel.
 
 ## port.sh
 
