@@ -1,4 +1,4 @@
-[English](README.md) | [正體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+[简体中文](README.md) | [English](README.en.md) | [正體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 # cjktty-patches
 
@@ -45,7 +45,7 @@ patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 
 ## 변경 기록
 
-번역되지 않은 변경 기록은 [영어 README의 Changes 절](README.md#changes)에 있습니다.
+번역되지 않은 변경 기록은 [영어 README의 Changes 절](README.en.md#changes)에 있습니다.
 
 ## 라이선스
 
