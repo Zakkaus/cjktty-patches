@@ -1,7 +1,7 @@
 #!/bin/bash
 # Boot a patched kernel on a full systemd userland and exercise the console.
 #
-# Usage: tools/test-system.sh [--bootloader] <kernel-version> [patch-file]
+# Usage: tools/test-system.sh [--bootloader] <kernel-version> [patch-file ...]
 #
 # test-patch.sh stops at an initramfs, which never touches the paths this patch
 # actually changes: the framebuffer handover from efifb to a DRM driver, a font
@@ -28,19 +28,23 @@ if [ "${1:-}" = "--bootloader" ]; then
 	bootloader=1
 	shift
 fi
-[ $# -ge 1 ] || die "usage: $0 [--bootloader] <kernel-version> [patch-file]"
+[ $# -ge 1 ] || die "usage: $0 [--bootloader] <kernel-version> [patch-file ...]"
 version=$1
 series=${version%%.*}
 minor=$(echo "$version" | cut -d. -f2)
+shift
 
-patch_file=${2:-}
-if [ -z "$patch_file" ]; then
+patch_files=("$@")
+if [ ${#patch_files[@]} -eq 0 ]; then
 	for candidate in "$repo/v$series.x/cjktty-$version.patch" \
 			 "$repo/v$series.x/cjktty-$series.$minor.patch"; do
-		[ -f "$candidate" ] && { patch_file=$candidate; break; }
+		[ -f "$candidate" ] && { patch_files=("$candidate"); break; }
 	done
 fi
-[ -n "$patch_file" ] && [ -f "$patch_file" ] || die "no patch for $version"
+[ ${#patch_files[@]} -gt 0 ] || die "no patch for $version"
+for patch_file in "${patch_files[@]}"; do
+	[ -f "$patch_file" ] || die "patch not found: $patch_file"
+done
 
 if [ $bootloader -eq 1 ]; then
 	base="$lab/boot-testvm/base.img"
@@ -70,11 +74,17 @@ if [ ! -d "$pristine" ]; then
 	tar -xf "$tarball" -C "$lab" || die "cannot unpack $tarball"
 fi
 
-step "apply $(basename "$patch_file")"
+patch_names=()
+for patch_file in "${patch_files[@]}"; do
+	patch_names+=("$(basename "$patch_file")")
+done
+step "apply ${patch_names[*]}"
 rm -rf "$tree"
 cp -a "$pristine" "$tree"
-patch -d "$tree" -p1 --fuzz=0 --silent < "$patch_file" ||
-	die "$(basename "$patch_file") does not apply to $version with fuzz=0"
+for patch_file in "${patch_files[@]}"; do
+	patch -d "$tree" -p1 --fuzz=0 --silent < "$patch_file" ||
+		die "$(basename "$patch_file") does not apply to $version with fuzz=0"
+done
 find "$tree" -name '*.orig' -delete
 
 step "configure"
