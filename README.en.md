@@ -50,6 +50,29 @@ holds only 256 glyphs.
 
 ## Changes
 
+### 2026.8.11 / 6.12.102, 6.18, 7.1.7
+
+- Default `CONFIG_FONT_CJK_32x32` off. The base patch ships an empty
+  `font_cjk_32x32.h` while the option defaulted on, so a build that took the
+  default compiled 8 MiB of zeros: every glyph blank, no error anywhere, and the
+  console silently drawing nothing where CJK should be. Present since the 32x32
+  data moved into its own patch in 2021.
+- Add `tools/gen-font.py`, which reproduces both font arrays byte for byte from
+  a GNU Unifont `.hex` and the mainline base font. The changelog named Unifont
+  13.0.06 for the 32x32 data; it is 15.1.04.
+- Add a split form of the maintained patches: one shared 11.8 MB font patch and
+  a code patch of about 800 lines per kernel. The existing files are unchanged.
+- Add `tools/test-stress.sh`, which repeats `setfont`, `chvt`, rotation and an
+  fbcon rebind under KASAN, kmemleak and lockdep.
+- Add `--cjk32` to both test stages, so the 32x32 path is tested rather than
+  disabled, and `--cell` to the console checker, whose sampling followed the
+  base font.
+- Add `tools/make-boot-testvm.sh` and `test-system.sh --bootloader`, which boot
+  the installed kernel through GRUB and a dracut initramfs instead of QEMU's
+  `-kernel`.
+- Add continuous integration, a `LICENSE` file, a usage section, and Japanese,
+  Korean, Traditional and Simplified Chinese READMEs.
+
 ### 2026.8.8 / 6.12.102, 6.18, 7.1.7
 
 - Add patches for linux 6.12.102 and 6.18.
