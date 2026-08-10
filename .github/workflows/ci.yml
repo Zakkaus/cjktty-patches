@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quick:
+    name: Quick checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test patch splitter
+        env:
+          CJKTTY_LAB: ${{ runner.temp }}/cjktty
+        run: tools/test-split-patch.sh
+
+  apply:
+    name: Apply Linux ${{ matrix.version }} patch
+    needs: quick
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - 6.12.102
+          - 6.18.44
+          - 7.1.7
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache immutable kernel tarballs
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/cjktty/linux-${{ matrix.version }}.tar.xz
+          key: linux-tarball-${{ runner.os }}-${{ matrix.version }}
+
+      - name: Install apply-check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends patch xz-utils
+
+      - name: Apply maintained patch
+        env:
+          CJKTTY_LAB: ${{ runner.temp }}/cjktty
+          CJKTTY_TARBALLS: ${{ runner.temp }}/cjktty
+          KERNEL_VERSION: ${{ matrix.version }}
+        run: tools/check-patches.sh "$KERNEL_VERSION"
+
+  boot:
+    name: Build and boot Linux ${{ matrix.version }}
+    needs: apply
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 6.12.102
+            code_patch: v6.x/cjktty-code-v2-6.12.102.patch
+          - version: 6.18.44
+            code_patch: v6.x/cjktty-code-v2-6.18.patch
+          - version: 7.1.7
+            code_patch: v7.x/cjktty-code-v2-7.1.7.patch
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache immutable kernel tarball
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/cjktty/linux-${{ matrix.version }}.tar.xz
+          key: linux-tarball-${{ runner.os }}-${{ matrix.version }}
+
+      - name: Install build and boot dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends \
+            bc bison build-essential cpio flex libelf-dev libssl-dev \
+            ovmf qemu-system-x86 qemu-utils socat
+
+      - name: Prepare OVMF firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=/usr/share/OVMF/OVMF_CODE_4M.fd
+          vars=/usr/share/OVMF/OVMF_VARS_4M.fd
+          [ -f "$code" ] || {
+            echo "OVMF code firmware not found at $code" >&2
+            exit 1
+          }
+          [ -f "$vars" ] || {
+            echo "OVMF variable firmware not found at $vars" >&2
+            exit 1
+          }
+          qemu-img convert -f raw -O qcow2 \
+            "$code" "${{ runner.temp }}/OVMF_CODE_4M.qcow2"
+          echo "OVMF_CODE=${{ runner.temp }}/OVMF_CODE_4M.qcow2" >> "$GITHUB_ENV"
+          echo "OVMF_VARS=$vars" >> "$GITHUB_ENV"
+
+      - name: Build and boot without KVM
+        env:
+          BOOT_TIMEOUT: 300
+          CJKTTY_LAB: ${{ runner.temp }}/cjktty
+          JOBS: 4
+        shell: bash
+        run: |
+          set -euo pipefail
+          QEMU_TCG_BINARY=$(command -v qemu-system-x86_64)
+          export QEMU_TCG_BINARY
+          # test-patch.sh keeps -enable-kvm for local runs; hosted runners use TCG.
+          qemu-system-x86_64() {
+            local arg
+            local -a args=()
+            for arg in "$@"; do
+              [ "$arg" = -enable-kvm ] || args+=("$arg")
+            done
+            "$QEMU_TCG_BINARY" -accel tcg,thread=multi "${args[@]}"
+          }
+          export -f qemu-system-x86_64
+          tools/test-patch.sh \
+            "${{ matrix.version }}" \
+            cjktty-font-v2.patch \
+            "${{ matrix.code_patch }}"
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.version }}-failure
+          path: ${{ runner.temp }}/cjktty/out-${{ matrix.version }}
+          if-no-files-found: ignore
+          retention-days: 7
