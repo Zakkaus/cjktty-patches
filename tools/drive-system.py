@@ -187,7 +187,11 @@ def main(
 
         # The paths the patch changes: font reload, VT switch, and the release
         # path that frees the CJK buffers.
-        console.run("setfont /usr/share/consolefonts/default8x16.psfu.gz || setfont")
+        test_font = os.environ.get("CJKTTY_TEST_FONT")
+        if test_font:
+            console.run(f"setfont {shlex.quote(test_font)}")
+        else:
+            console.run("setfont /usr/share/consolefonts/default8x16.psfu.gz || setfont")
         console.run("chvt 2; sleep 1; chvt 1")
 
         # fbcon_rotate_font_utf runs only under console rotation, and porting to

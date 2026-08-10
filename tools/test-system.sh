@@ -1,7 +1,7 @@
 #!/bin/bash
 # Boot a patched kernel on a full systemd userland and exercise the console.
 #
-# Usage: tools/test-system.sh [--bootloader] <kernel-version> [patch-file ...]
+# Usage: tools/test-system.sh [--bootloader] [--cjk32] <kernel-version> [patch-file ...]
 #
 # test-patch.sh stops at an initramfs, which never touches the paths this patch
 # actually changes: the framebuffer handover from efifb to a DRM driver, a font
@@ -23,12 +23,18 @@ boot_timeout=${BOOT_TIMEOUT:-300}
 die() { echo "$*" >&2; exit 1; }
 step() { printf '\n== %s\n' "$*"; }
 
+cjk32=0
+if [ "${1:-}" = "--cjk32" ]; then
+	cjk32=1
+	shift
+fi
+
 bootloader=0
 if [ "${1:-}" = "--bootloader" ]; then
 	bootloader=1
 	shift
 fi
-[ $# -ge 1 ] || die "usage: $0 [--bootloader] <kernel-version> [patch-file ...]"
+[ $# -ge 1 ] || die "usage: $0 [--bootloader] [--cjk32] <kernel-version> [patch-file ...]"
 version=$1
 series=${version%%.*}
 minor=$(echo "$version" | cut -d. -f2)
@@ -85,6 +91,10 @@ for patch_file in "${patch_files[@]}"; do
 	patch -d "$tree" -p1 --fuzz=0 --silent < "$patch_file" ||
 		die "$(basename "$patch_file") does not apply to $version with fuzz=0"
 done
+if [ "$cjk32" = 1 ]; then
+	patch -d "$tree" -p1 --fuzz=0 --silent < "$repo/cjktty-add-cjk32x32-font-data.patch" ||
+		die "the 32x32 font data patch does not apply to $version"
+fi
 find "$tree" -name '*.orig' -delete
 
 step "configure"
@@ -98,7 +108,7 @@ make -C "$tree" -s x86_64_defconfig >/dev/null || die "defconfig failed"
 	-e CONFIG_DRM -e CONFIG_DRM_VIRTIO_GPU -e CONFIG_DRM_FBDEV_EMULATION \
 	-e CONFIG_FRAMEBUFFER_CONSOLE -e CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY \
 	-e CONFIG_FRAMEBUFFER_CONSOLE_ROTATION -e CONFIG_CONSOLE_TRANSLATIONS \
-	-e CONFIG_FONTS -e CONFIG_FONT_CJK_16x16 -d CONFIG_FONT_CJK_32x32 \
+	-e CONFIG_FONTS \
 	-e CONFIG_VIRTIO -e CONFIG_VIRTIO_PCI -e CONFIG_VIRTIO_BLK \
 	-e CONFIG_EXT4_FS -e CONFIG_DEVTMPFS -e CONFIG_DEVTMPFS_MOUNT \
 	-e CONFIG_SERIAL_8250 -e CONFIG_SERIAL_8250_CONSOLE \
@@ -112,6 +122,31 @@ if [ $bootloader -eq 1 ]; then
 		-e CONFIG_EFI -e CONFIG_EFI_STUB -e CONFIG_EFI_PARTITION \
 		-e CONFIG_VFAT_FS -e CONFIG_NLS_CODEPAGE_437 -e CONFIG_NLS_ISO8859_1 ||
 		die "scripts/config failed for the bootloader path"
+fi
+# scripts/config exits 0 without touching these symbols, so rewrite the line
+# outright; olddefconfig keeps what it finds here.
+set_option() {
+	# defconfig omits a symbol whose default is n, so absence is normal here;
+	# the assertion after olddefconfig is what proves the symbol exists.
+	local name=$1 value=$2 file=$tree/.config
+	sed -i "/^CONFIG_$name=/d; /^# CONFIG_$name is not set/d" "$file"
+	if [ "$value" = n ]; then
+		echo "# CONFIG_$name is not set" >> "$file"
+	else
+		echo "CONFIG_$name=$value" >> "$file"
+	fi
+}
+if [ "$cjk32" = 1 ]; then
+	# ter16x32 becomes the base font, so the console cell doubles in both axes
+	set_option FONT_CJK_16x16 n
+	set_option FONT_CJK_32x32 y
+	set_option FONT_TER16x32 y
+	# fbcon picks the first registered font, so 8x16 has to go or the console
+	# stays 8x16 and the 32x32 path is never reached
+	set_option FONT_8x16 n
+else
+	set_option FONT_CJK_16x16 y
+	set_option FONT_CJK_32x32 n
 fi
 make -C "$tree" -s olddefconfig >/dev/null || die "olddefconfig failed"
 
@@ -205,7 +240,10 @@ qemu=$!
 
 driver_args=("$out" "$boot_timeout")
 [ $bootloader -eq 1 ] && driver_args+=(--bootloader "$kernel_release")
+test_font=
+[ "$cjk32" = 1 ] && test_font=/usr/share/consolefonts/latarcyrheb-sun32.psfu.gz
 CJKTTY_SERIAL_SOCKET="$serial_socket" CJKTTY_MONITOR_SOCKET="$monitor_socket" \
+	CJKTTY_TEST_FONT="$test_font" \
 	python3 "$repo/tools/drive-system.py" "${driver_args[@]}"
 result=$?
 
@@ -217,10 +255,12 @@ step "console"
 [ -s "$out/login.ppm" ] || die "no login screenshot was captured"
 [ -s "$out/console.ppm" ] || die "no console screenshot was captured"
 [ -s "$out/rotated.ppm" ] || die "no rotated screenshot was captured"
-python3 "$repo/tools/check-console.py" "$out/console.ppm" ||
+cell=8x16
+[ "$cjk32" = 1 ] && cell=16x32
+python3 "$repo/tools/check-console.py" --cell "$cell" "$out/console.ppm" ||
 	die "$version: the console did not render CJK after the DRM handover"
-python3 "$repo/tools/check-console.py" --rotated "$out/rotated.ppm" ||
-	die "$version: the console drew nothing under rotation"
+python3 "$repo/tools/check-console.py" --rotated --cell "$cell" "$out/rotated.ppm" ||
+	die "$version: the console did not render CJK under rotation"
 
 echo
 if [ $bootloader -eq 1 ]; then

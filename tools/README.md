@@ -9,7 +9,7 @@ artifacts go to `$CJKTTY_LAB`, which defaults to `../lab`.
 ```
 tools/test-patch.sh 6.18.43
 tools/test-patch.sh 7.0 v7.x/cjktty-7.0.patch
-tools/test-patch.sh 6.18.44 cjktty-font-unifont-15.1.04.patch v6.x/cjktty-code-6.18.patch
+tools/test-patch.sh 6.18.44 cjktty-font-v2.patch v6.x/cjktty-code-v2-6.18.patch
 ```
 
 Downloads the kernel if needed, then runs three checks. A patch is only finished
@@ -38,7 +38,7 @@ a monolithic patch.
 ```
 tools/make-testvm.sh            # once: builds lab/testvm/base.img from a stage3
 tools/test-system.sh 6.18.43
-tools/test-system.sh 6.18.44 cjktty-font-unifont-15.1.04.patch v6.x/cjktty-code-6.18.patch
+tools/test-system.sh 6.18.44 cjktty-font-v2.patch v6.x/cjktty-code-v2-6.18.patch
 
 tools/make-boot-testvm.sh       # once: adds an ESP, GRUB and dracut
 tools/test-system.sh --bootloader 6.18.43
@@ -105,20 +105,9 @@ most files, while an empty new file can have only a `diff --git` header.
 Apply the shared font patch before the code patch for the target kernel:
 
 ```
-patch -d linux -p1 --fuzz=0 < cjktty-font-unifont-15.1.04.patch
-patch -d linux -p1 --fuzz=0 < v6.x/cjktty-code-6.18.patch
+patch -d linux -p1 --fuzz=0 < cjktty-font-v2.patch
+patch -d linux -p1 --fuzz=0 < v6.x/cjktty-code-v2-6.18.patch
 ```
-
-## Naming a split patch
-
-The font patch carries the Unifont release it was generated from, because a
-published filename is frozen: five ebuilds in `gentoo-zh/overlay` fetch patches
-by raw URL, so a font update adds `cjktty-font-unifont-<version>.patch` beside
-the old one rather than replacing it. `tools/gen-font.py` produces that data, so
-the name is checkable rather than a label.
-
-A code patch needs no version of its own. It lives under `v<major>.x/` and its
-filename already names the kernel.
 
 ## port.sh
 
@@ -216,3 +205,30 @@ Proven to fail: removing one `kvfree(par->fontbuffer_utf)` from
 bytes, exactly the 16x16 font buffer, and the script exits 1.
 
 The guest needs 4 GiB because KASAN roughly triples the kernel's memory use.
+
+## Testing the 32x32 font
+
+`--cjk32` on either stage applies `cjktty-add-cjk32x32-font-data.patch` on top
+of the base patch, turns `CONFIG_FONT_CJK_32x32` on and `CONFIG_FONT_CJK_16x16`
+off, and selects `FONT_TER16x32` as the base font.
+
+```sh
+tools/test-patch.sh --cjk32 6.18.44
+tools/test-system.sh --cjk32 6.18.44
+```
+
+Without that data patch the option compiles 8 MiB of zeros, which is why it
+defaults off and why the mode applies the data patch rather than trusting the
+caller to.
+
+The console cell follows the base font, so this mode passes `--cell 16x32` to
+`check-console.py`. Sampling 8x16 cells on a 16x32 screen lands between glyphs
+and reports a blank cell on a working kernel.
+
+`scripts/config` exits 0 without changing these symbols, so `set_option` deletes
+the line and appends the wanted form. `defconfig` omits a symbol whose default
+is n, so absence there is normal; the assertion after `olddefconfig` is what
+proves the symbol exists.
+
+Measured on 6.18.44: 16x16 draws 144 and 135 lit subpixels, 32x32 draws 576 and
+540, four times the area for glyphs twice as wide and twice as tall.
