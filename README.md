@@ -31,9 +31,9 @@ patch -p1 --fuzz=0 < ../cjktty-patches/v6.x/cjktty-6.18.patch
 patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 ```
 
-然后启用 `CONFIG_FONT_CJK_32x32=y`。如未应用数据补丁，此选项会编译 8 MiB 的全零数据，因此现在默认关闭。
+然后启用 `CONFIG_FONT_CJK_32x32=y`。该选项默认关闭。
 
-必须使用 framebuffer console。`vgacon` 的字体只能容纳 256 个字形，因此无法显示 CJK。
+必须使用 framebuffer console；`vgacon` 无法显示 CJK。
 
 ## 历史
 

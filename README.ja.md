@@ -31,9 +31,9 @@ patch -p1 --fuzz=0 < ../cjktty-patches/v6.x/cjktty-6.18.patch
 patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 ```
 
-続いて `CONFIG_FONT_CJK_32x32=y` を有効にします。データパッチを適用しない場合、このオプションは 8 MiB のゼロデータをコンパイルするため、現在はデフォルトで無効になっています。
+続いて `CONFIG_FONT_CJK_32x32=y` を有効にします。このオプションは既定で無効です。
 
-フレームバッファコンソールが必要です。`vgacon` のフォントには 256 個のグリフしか格納できないため、CJK を表示できません。
+フレームバッファコンソールが必要です。`vgacon` では CJK を表示できません。
 
 ## 履歴
 
