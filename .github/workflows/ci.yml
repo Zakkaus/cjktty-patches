@@ -67,11 +67,11 @@ jobs:
       matrix:
         include:
           - version: 6.12.102
-            code_patch: v6.x/cjktty-code-v2-6.12.102.patch
+            code_patch: v6.x/cjktty-code-6.12.102.patch
           - version: 6.18.44
-            code_patch: v6.x/cjktty-code-v2-6.18.patch
+            code_patch: v6.x/cjktty-code-6.18.patch
           - version: 7.1.7
-            code_patch: v7.x/cjktty-code-v2-7.1.7.patch
+            code_patch: v7.x/cjktty-code-7.1.7.patch
     steps:
       - uses: actions/checkout@v4
 
@@ -129,7 +129,7 @@ jobs:
           export -f qemu-system-x86_64
           tools/test-patch.sh \
             "${{ matrix.version }}" \
-            cjktty-font-v2.patch \
+            cjktty-font-unifont-15.1.04.patch \
             "${{ matrix.code_patch }}"
 
       - name: Upload failure artifacts

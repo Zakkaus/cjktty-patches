@@ -5,7 +5,7 @@
 #
 #   tools/test-patch.sh 6.18.43
 #   tools/test-patch.sh 7.0 v7.x/cjktty-7.0.patch
-#   tools/test-patch.sh 6.18.44 cjktty-font-v2.patch cjktty-code-v2-6.18.patch
+#   tools/test-patch.sh 6.18.44 cjktty-font-unifont-15.1.04.patch cjktty-code-6.18.patch
 #
 # A patch passes only when all three succeed: it applies with no fuzz, the
 # kernel builds, and the booted console reports the CJK font. Artifacts stay in
