@@ -34,6 +34,8 @@ GLYPH_CELLS = 2
 #: One rotated line of the test text lights this many subpixels; half of it is
 #: still unmistakably a line of text and not a stray cursor.
 ROTATED_MIN_INK = 1000
+#: "rotated:  " occupies ten cells before the CJK text.
+ROTATED_PREFIX_CELLS = 10
 
 
 class CheckFailed(Exception):
@@ -76,6 +78,28 @@ def ink(block: bytes) -> int:
     return sum(1 for value in block if value > 0x40)
 
 
+def rotated_glyph(
+    pixels: bytes,
+    width: int,
+    height: int,
+    index: int,
+    cell: tuple[int, int],
+) -> bytes:
+    """The pixels of one CJK glyph after a clockwise rotation."""
+    cell_width, cell_height = cell
+    left = width - cell_height
+    top = (ROTATED_PREFIX_CELLS + index * GLYPH_CELLS) * cell_width
+    bottom = top + GLYPH_CELLS * cell_width
+    if left < 0 or bottom > height:
+        raise CheckFailed("the rotated CJK cells fall outside the screenshot")
+
+    out = bytearray()
+    for y in range(top, bottom):
+        start = (y * width + left) * 3
+        out += pixels[start : start + cell_height * 3]
+    return bytes(out)
+
+
 def lit_box(pixels: bytes, width: int, height: int) -> tuple[int, int, int, int]:
     xs: list[int] = []
     ys: list[int] = []
@@ -90,13 +114,21 @@ def lit_box(pixels: bytes, width: int, height: int) -> tuple[int, int, int, int]
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def check_rotated(path: Path) -> str:
+def check_rotated(path: Path, cell: tuple[int, int] = DEFAULT_CELL) -> str:
     width, height, pixels = read_ppm(path)
     lit = ink(pixels)
     if lit < ROTATED_MIN_INK:
         raise CheckFailed(
             f"the rotated console drew {lit} lit subpixels, under {ROTATED_MIN_INK}; "
             "rotation painted nothing"
+        )
+    first = rotated_glyph(pixels, width, height, 0, cell)
+    second = rotated_glyph(pixels, width, height, 1, cell)
+    if ink(first) == 0 or ink(second) == 0:
+        raise CheckFailed("the rotated CJK cells are blank; no glyph was drawn")
+    if first == second:
+        raise CheckFailed(
+            "two different rotated CJK characters drew the same shape; the font is missing"
         )
     left, top, right, bottom = lit_box(pixels, width, height)
     box_width = right - left + 1
@@ -109,8 +141,8 @@ def check_rotated(path: Path) -> str:
             "the console did not rotate"
         )
     return (
-        f"the rotated console drew a line running down the screen "
-        f"({box_width} by {box_height} pixels, {lit} lit subpixels)"
+        f"rotated CJK glyphs differ and carry ink ({ink(first)} and {ink(second)} "
+        f"lit subpixels); the line is {box_width} by {box_height} pixels"
     )
 
 
@@ -158,7 +190,7 @@ if __name__ == "__main__":
         )
     try:
         if rotated:
-            print(check_rotated(Path(arguments[0])))
+            print(check_rotated(Path(arguments[0]), cell))
         else:
             print(check(Path(arguments[0]), cell))
     except CheckFailed as error:
