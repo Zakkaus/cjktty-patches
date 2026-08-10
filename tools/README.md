@@ -4,6 +4,31 @@ Maintenance and test scripts for the patch collection. They need `gcc`, `cpio`,
 `patch`, `qemu-system-x86_64` with KVM, and OVMF firmware. Kernel trees and test
 artifacts go to `$CJKTTY_LAB`, which defaults to `../lab`.
 
+## check-release-drift.py
+
+```
+tools/check-release-drift.py
+tools/check-release-drift.py --releases-file releases.json \
+  --tarball-dir /path/to/tarballs --scratch-dir /path/to/scratch
+```
+
+Reads kernel.org's `releases.json` feed and checks the active, non-EOL
+`mainline`, `stable` and `longterm` series for which this repository has a
+monolithic patch. Archived series are deliberately omitted even though their
+patches remain published. For each watched series, the script selects the newest
+versioned `cjktty-<version>.patch` filename; split `cjktty-code-*` patches are
+not a second patch lineage and are omitted.
+
+Each patch is checked against the feed's current release with
+`patch -p1 --fuzz=0 --dry-run`. A stable or longterm reject exits nonzero. A
+mainline release-candidate reject is reported but exits zero because movement is
+expected during the RC cycle. Network, feed and extraction errors are reported
+separately and exit 2 rather than being mislabeled as patch drift.
+
+This check only proves that a patch applies without fuzz. It does not build the
+kernel or render CJK; `test-patch.sh` and `test-system.sh` remain the tests for
+those claims.
+
 ## test-patch.sh
 
 ```
