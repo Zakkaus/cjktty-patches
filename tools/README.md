@@ -9,6 +9,7 @@ artifacts go to `$CJKTTY_LAB`, which defaults to `../lab`.
 ```
 tools/test-patch.sh 6.18.43
 tools/test-patch.sh 7.0 v7.x/cjktty-7.0.patch
+tools/test-patch.sh 6.18.44 cjktty-font-v1.patch cjktty-code-6.18.patch
 ```
 
 Downloads the kernel if needed, then runs three checks. A patch is only finished
@@ -25,6 +26,10 @@ font and draws CJK from its own buffer, so the console keeps reporting
 compares two different CJK cells on screen: real glyphs differ and carry ink,
 missing ones are the same empty box.
 
+When patch paths are given, the test applies all of them from left to right.
+This lets a split font-and-code pair go through the same build and boot checks as
+a monolithic patch.
+
 `CONFIG_FONT_CJK_32x32` stays off during the test. The base patch ships an empty
 `font_cjk_32x32.h`, so enabling it spends 8 MiB on a blank font.
 
@@ -33,6 +38,7 @@ missing ones are the same empty box.
 ```
 tools/make-testvm.sh            # once: builds lab/testvm/base.img from a stage3
 tools/test-system.sh 6.18.43
+tools/test-system.sh 6.18.44 cjktty-font-v1.patch cjktty-code-6.18.patch
 ```
 
 `test-patch.sh` stops at an initramfs, which never reaches the paths this patch
@@ -63,6 +69,26 @@ Every step is an assertion, not a screenshot for a human to squint at. The bind
 loop ends in `[ $n -gt 0 ]` because a loop that matches no console exits 0 and
 the release path would go unrun; the run then confirms from `dmesg` that the
 console really left the framebuffer driver.
+
+Like `test-patch.sh`, `test-system.sh` applies any explicitly named patches from
+left to right.
+
+## split-patch.py
+
+```
+tools/split-patch.py <source-patch> <font-output> <code-output>
+tools/test-split-patch.sh
+```
+
+Splits a monolithic patch by complete file stanza. Every hunk for a path matching
+`lib/fonts/font_cjk_<width>x<height>.h` goes to the font output; every other hunk
+goes to the code output. File metadata stays with its stanza, so the empty
+`font_cjk_32x32.h` is retained in the font output even though it has no
+`---`/`+++` pair.
+
+The source file list is the ordered union of `diff --git a/` and `--- a/`
+headers. Both forms are required: current patches use plain `---` headers for
+most files, while an empty new file can have only a `diff --git` header.
 
 ## port.sh
 
