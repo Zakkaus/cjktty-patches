@@ -28,11 +28,14 @@ missing ones are the same empty box.
 `CONFIG_FONT_CJK_32x32` stays off during the test. The base patch ships an empty
 `font_cjk_32x32.h`, so enabling it spends 8 MiB on a blank font.
 
-## make-testvm.sh and test-system.sh
+## make-testvm.sh, make-boot-testvm.sh and test-system.sh
 
 ```
 tools/make-testvm.sh            # once: builds lab/testvm/base.img from a stage3
 tools/test-system.sh 6.18.43
+
+tools/make-boot-testvm.sh       # once: adds an ESP, GRUB and dracut
+tools/test-system.sh --bootloader 6.18.43
 ```
 
 `test-patch.sh` stops at an initramfs, which never reaches the paths this patch
@@ -50,9 +53,18 @@ shutdown does not reach it. Both are triggered at runtime, so neither costs a
 second boot: `/sys/class/graphics/fbcon/rotate_all` and
 `/sys/class/vtconsole/vtcon*/bind`.
 
-The kernel never goes into the image. It is passed with `-kernel` and the disk
-is a qcow2 overlay on the base, so swapping kernels costs one build and no
-install, and a run cannot damage the base image.
+The default path keeps the kernel out of the image. It is passed with `-kernel`
+and the disk is a qcow2 overlay on the base, so swapping kernels costs one build
+and no install, and a run cannot damage the base image.
+
+The optional `--bootloader` path uses a separate partitioned base image. It
+builds and installs the kernel modules into an overlay, invokes the image's
+`installkernel`, requires dracut to produce a non-empty initramfs and requires
+GRUB's generated configuration to name both files. The verification boot then
+receives neither `-kernel` nor `-append`; OVMF starts GRUB from the ESP and GRUB
+supplies the kernel command line. The serial driver distinguishes GRUB not
+starting from GRUB starting but failing to hand off to Linux, and the guest
+confirms that it unpacked an initramfs before the normal system test continues.
 
 Three screenshots come out of each run: `login.ppm` is the getty screen,
 `rotated.ppm` is the CJK line drawn while the console is turned ninety degrees,
