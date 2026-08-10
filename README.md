@@ -2,13 +2,43 @@
 
 # cjktty-patches
 
-Maintained for `sys-kernel/gentoo-cjk-sources` and the live image built on it.
+This repository maintains cjktty patches used by `gentoo-zh/overlay` for
+Gentoo kernels and selected CachyOS and XanMod kernels.
 
-Patches from [Gentoo-zh/linux-cjktty](https://github.com/Gentoo-zh/linux-cjktty) with minor changes.
+Patches from [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty) with minor changes.
 
 - Starting with linux 5.10, the kernel config option `CONFIG_FONT_16x16_CJK` has been renamed to `CONFIG_FONT_CJK_16x16`.
 - To have a larger font on high resolution screens, you probably want to apply 32x32 font data patch.
 - The patch built-in fonts expect to work with 8x16 or 16x32 fonts. When changing to other font sizes, characters may not display correctly.
+- The current CJK bitmap data is derived from [GNU Unifont](https://savannah.gnu.org/projects/unifont) 15.1.04. The 32x32 halfwidth range comes from [Terminus Font](http://terminus-font.sourceforge.net) via the mainline kernel's `font_ter16x32.c`.
+
+## Usage
+
+Choose the patch whose `major.minor` matches the kernel version from
+`v<major>.x/`. From the kernel source root, with this repository checked out at
+`../cjktty-patches`, run:
+
+```sh
+patch -p1 --fuzz=0 < ../cjktty-patches/v6.x/cjktty-6.18.patch
+```
+
+Enable all of these kernel options:
+
+- `CONFIG_FONTS=y`
+- `CONFIG_FONT_CJK_16x16=y`
+- `CONFIG_FRAMEBUFFER_CONSOLE=y`
+
+To use the 32x32 font, also apply its data patch:
+
+```sh
+patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
+```
+
+Then enable `CONFIG_FONT_CJK_32x32=y`. Without the data patch, this option
+compiles 8 MiB of zeros, which is why it now defaults off.
+
+A framebuffer console is required. `vgacon` cannot display CJK because its font
+holds only 256 glyphs.
 
 ## History
 
@@ -88,7 +118,7 @@ Patches from [Gentoo-zh/linux-cjktty](https://github.com/Gentoo-zh/linux-cjktty)
 - Update double width tables to Unicode 14.0.0
 - Fix cutoff issue for double width glyphs from Unifont (e.g.`①  ②  ③ `)
 - Avoid unnecessary check of characters width
-- Remove workaround from [Gentoo-zh/linux-cjktty@6caf83a](https://github.com/Gentoo-zh/linux-cjktty/commit/6caf83a638886220d1e1880c92e8b18243c3965a)
+- Remove workaround from [gentoo-zh/linux-cjktty@6caf83a](https://github.com/gentoo-zh/linux-cjktty/commit/6caf83a638886220d1e1880c92e8b18243c3965a)
 
 ### 2022.05.23 / 5.18
 
@@ -130,7 +160,7 @@ Patches from [Gentoo-zh/linux-cjktty](https://github.com/Gentoo-zh/linux-cjktty)
 - Support `setfont` (Note: different font size can cause issues with this patch which expects to work with 8x16 / 16x32 font)
 - Fix display for some single width characters
 - Fix line wrap for double width characters (<https://github.com/zhmars/cjktty-patches/issues/1>)
-- Workaround from [Gentoo-zh/linux-cjktty@6caf83a](https://github.com/Gentoo-zh/linux-cjktty/commit/6caf83a638886220d1e1880c92e8b18243c3965a)
+- Workaround from [gentoo-zh/linux-cjktty@6caf83a](https://github.com/gentoo-zh/linux-cjktty/commit/6caf83a638886220d1e1880c92e8b18243c3965a)
 - Support 32x32 font size for high resolution screens (experimental, make sure the font data patch is applied)
 
 ### 2020.09.18 / 5.8.10
@@ -141,10 +171,15 @@ Patches from [Gentoo-zh/linux-cjktty](https://github.com/Gentoo-zh/linux-cjktty)
 
 </details>
 
+## License
+
+The patches are licensed under [GPL-2.0](LICENSE), matching the license
+declarations in the patched files.
+
 ## Credits
 
 - [youbest](http://blog.chinaunix.net/uid/436750.html) for [original univt patches](https://github.com/zhmars/univt-patches/tree/master/v2.6)
-- [microcai](https://github.com/microcai) and [Gentoo-zh/linux-cjktty](https://github.com/Gentoo-zh/linux-cjktty) for original cjktty patches
+- [microcai](https://github.com/microcai) and [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty) for original cjktty patches
 - [AOSC-Dev/aosc-os-abbs](https://github.com/AOSC-Dev/aosc-os-abbs) for some univt's modifications
 - [Unifont](https://savannah.gnu.org/projects/unifont) for font data
 - [Terminus Font](http://terminus-font.sourceforge.net) for font data
