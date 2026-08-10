@@ -45,15 +45,20 @@ patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 
 ## 變更記錄
 
-### 2026.8.11 / 6.12.102、6.18、7.1.7
+### 2026.8.11 / 5.10.264、5.15.215、6.1.182、6.6.151、6.12.103、6.18.44、7.1.8、7.2-rc7
 
+- 為 kernel.org 目前列出的每個核心新增補丁。原有的長期支援補丁只能套用到各系列的 `.0` 版，而那些版本在 GCC 15.3 之下已經無法建置，因此對任何有人在用的核心都不適用。舊檔案保持不動，下游 Manifest 釘著它們的雜湊。
+- 7.1.x 的旋轉緩衝區改用 `kvmalloc_array` 預先配置。`font_data_rotate` 用 `kmalloc_array` 擴容，拿不到 32x32 字模所需的 8 MiB，失敗時又保留原緩衝區且不報錯，旋轉因此只畫出兩個字形。
+- 兩個字型選項都關閉時不產生任何程式碼。此前只有字型註冊被條件編譯，補丁仍多出 4,246 位元組 `.text` 並移動 88 個 fbcon 符號；現在 `vmlinux` 與未打補丁的建置完全相同。
 - `CONFIG_FONT_CJK_32x32` 改為預設關閉。基礎補丁中該字模為空，預設開啟時把 8 MiB 全零編入核心且不報錯，自 2021 年起如此。
-- 新增 `tools/gen-font.py`，從 GNU Unifont 的 `.hex` 與主線基礎字型逐位元組重建兩份字模資料。變更記錄原本記為 Unifont 13.0.06，實際是 15.1.04。
-- 新增維護版本的拆分形式：一份共用的 11.8 MB 字模補丁，以及每個核心約 800 行的程式碼補丁。原有檔案未改動。
+- 在 `font_cjk_16x16.c` 與 `font_cjk_32x32.c` 中註明字模來源。
+- 新增 `tools/gen-font.py`，從 GNU Unifont 的 `.hex` 與主線基礎字型逐位元組重建兩份字模資料，並可輸出可載入的 PSF2。變更記錄原本記為 Unifont 13.0.06，實際是 15.1.04。
+- 新增拆分形式：每個 Unifont 修訂版一份字模補丁，每個核心一份約 800 行的程式碼補丁，移植從審閱 12 MB 檔案變成審閱一份讀得動的差異。原有檔案未改動。
 - 新增 `tools/test-stress.sh`，在 KASAN、kmemleak 與 lockdep 之下反覆執行 `setfont`、`chvt`、旋轉與 fbcon 重新綁定。
 - 兩層測試新增 `--cjk32`，讓 32x32 路徑被測試而不是被關閉；主控台檢查新增 `--cell`，取樣格隨基礎字型變化。
 - 新增 `tools/make-boot-testvm.sh` 與 `test-system.sh --bootloader`，經 GRUB 與 dracut initramfs 從磁碟開機，而不是用 QEMU 的 `-kernel`。
-- 新增持續整合、`LICENSE`、使用說明，以及日語、韓語、正體中文與簡體中文的 README。
+- 新增 `tools/test-loadable-font.sh`，並證明未編入任何 CJK 字模的核心可以透過 `KDFONTOP` 接收字模，設計記錄在 `docs/loadable-font.md`。
+- 新增持續整合、每日檢查各系列是否仍能套用到目前版本、`LICENSE`、使用說明，以及日語、韓語、正體中文與簡體中文的 README。
 
 更早的記錄未翻譯，請參閱[英文 README 的 Changes 章節](README.en.md#changes)。
 

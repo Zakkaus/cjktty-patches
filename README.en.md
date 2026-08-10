@@ -48,16 +48,29 @@ A framebuffer console is required; `vgacon` cannot display CJK.
 
 ## Changes
 
-### 2026.8.11 / 6.12.102, 6.18, 7.1.7
+### 2026.8.11 / 5.10.264, 5.15.215, 6.1.182, 6.6.151, 6.12.103, 6.18.44, 7.1.8, 7.2-rc7
 
+- Add a patch for every kernel kernel.org currently lists. The kept longterm
+  patches applied only to their series' `.0` release, and those no longer build
+  with GCC 15.3, so none of them worked against a kernel anyone runs. The old
+  files are untouched; downstream Manifests pin their hashes.
+- Preallocate the rotated CJK buffer with `kvmalloc_array` on 7.1.x.
+  `font_data_rotate` grows it with `kmalloc_array`, which cannot return the
+  8 MiB the 32x32 font needs, and its failure leaves the previous buffer in
+  place without reporting anything, so rotation drew two glyphs.
+- Build nothing when both font options are off. Only the font registration was
+  guarded, so the patch still added 4,246 bytes of `.text` and moved 88 fbcon
+  symbols; `vmlinux` is now identical to an unpatched build.
 - Default `CONFIG_FONT_CJK_32x32` off. The base patch carries an empty font
   there, so the default compiled 8 MiB of zeros and reported nothing, from 2021
   until now.
+- Name the font source in `font_cjk_16x16.c` and `font_cjk_32x32.c`.
 - Add `tools/gen-font.py`, which reproduces both font arrays byte for byte from
-  a GNU Unifont `.hex` and the mainline base font. The changelog named Unifont
-  13.0.06 for the 32x32 data; it is 15.1.04.
-- Add a split form of the maintained patches: one shared 11.8 MB font patch and
-  a code patch of about 800 lines per kernel. The existing files are unchanged.
+  a GNU Unifont `.hex` and the mainline base font, and emits a loadable PSF2.
+  The changelog named Unifont 13.0.06 for the 32x32 data; it is 15.1.04.
+- Add a split form: one font patch per Unifont revision and a code patch of
+  about 800 lines per kernel, so a port is a readable diff rather than a 12 MB
+  file. The existing files are unchanged.
 - Add `tools/test-stress.sh`, which repeats `setfont`, `chvt`, rotation and an
   fbcon rebind under KASAN, kmemleak and lockdep.
 - Add `--cjk32` to both test stages, so the 32x32 path is tested rather than
@@ -66,8 +79,12 @@ A framebuffer console is required; `vgacon` cannot display CJK.
 - Add `tools/make-boot-testvm.sh` and `test-system.sh --bootloader`, which boot
   the installed kernel through GRUB and a dracut initramfs instead of QEMU's
   `-kernel`.
-- Add continuous integration, a `LICENSE` file, a usage section, and Japanese,
-  Korean, Traditional and Simplified Chinese READMEs.
+- Add `tools/test-loadable-font.sh` and a proof that a kernel with no CJK font
+  compiled in can receive one through `KDFONTOP`, with the design in
+  `docs/loadable-font.md`.
+- Add continuous integration, a daily check that every series still applies to
+  its current release, a `LICENSE` file, a usage section, and Japanese, Korean,
+  Traditional and Simplified Chinese READMEs.
 
 ### 2026.8.8 / 6.12.102, 6.18, 7.1.7
 
