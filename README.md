@@ -1,3 +1,5 @@
+[English](README.md) | [正體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
+
 # cjktty-patches
 
 Maintained for `sys-kernel/gentoo-cjk-sources` and the live image built on it.
