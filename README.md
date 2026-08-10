@@ -1,4 +1,4 @@
-[English](README.md) | [正體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [正體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 # cjktty-patches
 
@@ -173,8 +173,8 @@ holds only 256 glyphs.
 
 ## License
 
-The patches are licensed under [GPL-2.0](LICENSE), matching the license
-declarations in the patched files.
+The patches are licensed under [GPL-2.0-only](LICENSE), matching the license
+declarations in the files added by the patches.
 
 ## Credits
 
