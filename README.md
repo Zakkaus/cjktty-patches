@@ -1,185 +1,60 @@
-[English](README.md) | [正體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+[简体中文](README.md) | [English](README.en.md) | [正體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 # cjktty-patches
 
-This repository maintains cjktty patches used by `gentoo-zh/overlay` for
-Gentoo kernels and selected CachyOS and XanMod kernels.
+本仓库维护 `gentoo-zh/overlay` 中 Gentoo 内核及部分 CachyOS、XanMod 内核所使用的 cjktty 补丁。
 
-Patches from [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty) with minor changes.
+补丁源自 [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty)，并作了少量修改。
 
-- Starting with linux 5.10, the kernel config option `CONFIG_FONT_16x16_CJK` has been renamed to `CONFIG_FONT_CJK_16x16`.
-- To have a larger font on high resolution screens, you probably want to apply 32x32 font data patch.
-- The patch built-in fonts expect to work with 8x16 or 16x32 fonts. When changing to other font sizes, characters may not display correctly.
-- The current CJK bitmap data is derived from [GNU Unifont](https://savannah.gnu.org/projects/unifont) 15.1.04. The 32x32 halfwidth range comes from [Terminus Font](http://terminus-font.sourceforge.net) via the mainline kernel's `font_ter16x32.c`.
+- 自 Linux 5.10 起，内核配置选项 `CONFIG_FONT_16x16_CJK` 已重命名为 `CONFIG_FONT_CJK_16x16`。
+- 如需在高分辨率屏幕上使用较大的字体，建议应用 32x32 字体数据补丁。
+- 补丁内置的字体预期与 8x16 或 16x32 字体配合使用。改用其他字体尺寸时，字符可能无法正确显示。
+- 当前的 CJK 点阵字体数据衍生自 [GNU Unifont](https://savannah.gnu.org/projects/unifont) 15.1.04。32x32 数据的半角字符范围取自 [Terminus Font](http://terminus-font.sourceforge.net)，并通过主线内核的 `font_ter16x32.c` 引入。
 
-## Usage
+## 使用
 
-Choose the patch whose `major.minor` matches the kernel version from
-`v<major>.x/`. From the kernel source root, with this repository checked out at
-`../cjktty-patches`, run:
+从 `v<major>.x/` 中选择 `major.minor` 与内核版本相符的补丁。假设本仓库检出于 `../cjktty-patches`，请在内核源码根目录执行：
 
 ```sh
 patch -p1 --fuzz=0 < ../cjktty-patches/v6.x/cjktty-6.18.patch
 ```
 
-Enable all of these kernel options:
+启用以下所有内核配置选项：
 
 - `CONFIG_FONTS=y`
 - `CONFIG_FONT_CJK_16x16=y`
 - `CONFIG_FRAMEBUFFER_CONSOLE=y`
 
-To use the 32x32 font, also apply its data patch:
+如需使用 32x32 字体，请另行应用其数据补丁：
 
 ```sh
 patch -p1 --fuzz=0 < ../cjktty-patches/cjktty-add-cjk32x32-font-data.patch
 ```
 
-Then enable `CONFIG_FONT_CJK_32x32=y`. Without the data patch, this option
-compiles 8 MiB of zeros, which is why it now defaults off.
+然后启用 `CONFIG_FONT_CJK_32x32=y`。如未应用数据补丁，此选项会编译 8 MiB 的全零数据，因此现在默认关闭。
 
-A framebuffer console is required. `vgacon` cannot display CJK because its font
-holds only 256 glyphs.
+必须使用 framebuffer console。`vgacon` 的字体只能容纳 256 个字形，因此无法显示 CJK。
 
-## History
+## 历史
 
-| Years | Where |
+| 年份 | 位置 |
 |---|---|
-| 2011–2020 | [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty), by microcai, one branch per kernel |
-| 2020–2024 | [zhmars/cjktty-patches](https://github.com/zhmars/cjktty-patches), extracted into a patch collection |
-| 2022– | [bigshans/cjktty-patches](https://github.com/bigshans/cjktty-patches), still maintained; this repository forked from it |
+| 2011–2020 | [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty)，由 microcai 维护，每个内核版本各有一个分支 |
+| 2020–2024 | [zhmars/cjktty-patches](https://github.com/zhmars/cjktty-patches)，抽取为补丁集合 |
+| 2022– | [bigshans/cjktty-patches](https://github.com/bigshans/cjktty-patches)，仍在维护；本仓库由此派生 |
 
-## Changes
+## 变更记录
 
-### 2026.8.8 / 6.12.102, 6.18, 7.1.7
+变更记录未翻译，请参阅[英文 README 的 Changes 章节](README.en.md#changes)。
 
-- Add patches for linux 6.12.102 and 6.18.
-- Update for linux 7.1.7.
-- Free the CJK font buffers with `kvfree`, and release `fontbuffer_utf`, which
-  was never freed.
-- Fix the builds of 6.12.63, 6.16 and 6.17.8.
-- Add `tools/`, a two-stage test harness.
+## 许可证
 
-### 2026.7.27 / 7.1.2
+补丁采用 [GPL-2.0-only](LICENSE)，与补丁所新增文件中的许可证声明一致。
 
-- Fix `CONFIG_FRAMEBUFFER_CONSOLE_ROTATION` lost.
+## 致谢
 
-### 2026.6.17 / 7.1
-
-- Update for linux 7.1
-
-### 2026.4.14 / 7.0
-
-- Update for linux 7.0
-
-### 2026.2.14 / 6.19
-
-- Update for linux 6.19
-
-### 2025.8.2 / 6.16
-
-- Update for linux 6.16
-
-### 2024.5.15 / 6.9
-
-- Update for linux-6.9.y
-
-### 2023.10.30 / 6.6
-
-- Resync for linux-6.6.y
-- Update font data to Unifont 15.1.04
-- Update double width tables to Unicode 15.1.0
-
-### 2023.06.26 / 6.4
-
-- Resync for linux-6.4.y
-- Update font data to Unifont 15.0.06
-
-### 2023.04.24 / 6.3
-
-- Resync for linux-6.3.y
-- Use saner names for more scroll variables & cache row count (upstream)
-  - [torvalds/linux@424c82a](https://github.com/torvalds/linux/commit/424c82af26b1b8ca6c0be06987a4e6d18c9a92dd)
-  - [torvalds/linux@bf8baa0](https://github.com/torvalds/linux/commit/bf8baa00668dbc4fcfca5ac49ae8a3059c795e4e)
-
-### 2022.10.03 / 6.0
-
-- Resync for linux-6.0.y
-- Update font data to Unifont 15.0.01
-- Update double width tables to Unicode 15.0.0
-- Minor cleanups
-
-<details>
-<summary>v5.x (click to expand)</summary>
-
-### 2022.08.01 / 5.19
-
-- Resync for linux-5.19.y
-- Update font data to Unifont 14.0.04
-- Update double width tables to Unicode 14.0.0
-- Fix cutoff issue for double width glyphs from Unifont (e.g.`①  ②  ③ `)
-- Avoid unnecessary check of characters width
-- Remove workaround from [gentoo-zh/linux-cjktty@6caf83a](https://github.com/gentoo-zh/linux-cjktty/commit/6caf83a638886220d1e1880c92e8b18243c3965a)
-
-### 2022.05.23 / 5.18
-
-- Resync for linux-5.18.y
-- Fix build warnings with GCC 12 (`-Wbidi-chars=unpaired`)
-
-### 2022.03.21 / 5.17
-
-- Resync for linux-5.17.y
-- Update font data to Unifont 14.0.02
-- Revert scroll acceleration code (upstream)
-  - [torvalds/linux@1148836](https://github.com/torvalds/linux/commit/1148836fd3226c20de841084aba24184d4fbbe77)
-
-### 2022.01.10 / 5.16
-
-- Resync for linux-5.16.y
-- Remove scroll acceleration code (upstream)
-  - [torvalds/linux@b3ec8cd](https://github.com/torvalds/linux/commit/b3ec8cdf457e5e63d396fe1346cc788cf7c1b578)
-
-### 2021.09.17 / 5.14.5
-
-- Update font data to Unifont 14.0.01
-- Replace original 16x16 font with Unifont for better unicode support
-
-### 2021.02.22 / 5.11
-
-- Resync for linux-5.11.y
-- Update CJK 32x32 font data to Unifont 13.0.06
-- Reduce checkpatch.pl complaints
-- Remove charcount changes since it has been implemented (upstream)
-  - [torvalds/linux@4ee5730](https://github.com/torvalds/linux/commit/4ee573086bd88ff3060dda07873bf755d332e9ba)
-  - [torvalds/linux@a1ac250](https://github.com/torvalds/linux/commit/a1ac250a82a5e97db71f14101ff7468291a6aaef)
-
-### 2020.12.14 / 5.10
-
-- Resync for linux-5.10.y
-- Update glyphs for some Chinese punctuation marks
-- Support display rotation
-- Support `setfont` (Note: different font size can cause issues with this patch which expects to work with 8x16 / 16x32 font)
-- Fix display for some single width characters
-- Fix line wrap for double width characters (<https://github.com/zhmars/cjktty-patches/issues/1>)
-- Workaround from [gentoo-zh/linux-cjktty@6caf83a](https://github.com/gentoo-zh/linux-cjktty/commit/6caf83a638886220d1e1880c92e8b18243c3965a)
-- Support 32x32 font size for high resolution screens (experimental, make sure the font data patch is applied)
-
-### 2020.09.18 / 5.8.10
-
-- Resync for linux-5.8.10
-- Remove soft scrollback code (upstream)
-  - [torvalds/linux@5014547](https://github.com/torvalds/linux/commit/50145474f6ef4a9c19205b173da6264a644c7489)
-
-</details>
-
-## License
-
-The patches are licensed under [GPL-2.0-only](LICENSE), matching the license
-declarations in the files added by the patches.
-
-## Credits
-
-- [youbest](http://blog.chinaunix.net/uid/436750.html) for [original univt patches](https://github.com/zhmars/univt-patches/tree/master/v2.6)
-- [microcai](https://github.com/microcai) and [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty) for original cjktty patches
-- [AOSC-Dev/aosc-os-abbs](https://github.com/AOSC-Dev/aosc-os-abbs) for some univt's modifications
-- [Unifont](https://savannah.gnu.org/projects/unifont) for font data
-- [Terminus Font](http://terminus-font.sourceforge.net) for font data
+- [youbest](http://blog.chinaunix.net/uid/436750.html) 提供[原始 univt 补丁](https://github.com/zhmars/univt-patches/tree/master/v2.6)
+- [microcai](https://github.com/microcai) 和 [gentoo-zh/linux-cjktty](https://github.com/gentoo-zh/linux-cjktty) 提供原始 cjktty 补丁
+- [AOSC-Dev/aosc-os-abbs](https://github.com/AOSC-Dev/aosc-os-abbs) 提供部分 univt 修改
+- [Unifont](https://savannah.gnu.org/projects/unifont) 提供字体数据
+- [Terminus Font](http://terminus-font.sourceforge.net) 提供字体数据
