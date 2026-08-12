@@ -65,13 +65,13 @@ diff --git a/drivers/tty/vt/vt.c b/drivers/tty/vt/vt.c
 -		if (con_should_update(vc))
 -			con_putc(vc, old, oldy, oldx);
 +		if (con_should_update(vc)) {
-+			u32 glyph = old;
-+
 +#ifdef CONFIG_FONT_CJK
-+			if (IS_ENABLED(CONFIG_FONT_CJK))
-+				glyph |= old_utf << 16;
++			if (IS_ENABLED(CONFIG_FONT_CJK)) {
++				u16 glyph[2] = { old, old_utf };
++				vc->vc_sw->con_putcs(vc, glyph, 1, oldy, oldx);
++			} else
 +#endif
-+			con_putc(vc, glyph, oldy, oldx);
++				con_putc(vc, old, oldy, oldx);
 +		}
  		notify_update(vc);
  	}
@@ -87,16 +87,16 @@ diff --git a/drivers/tty/vt/vt.c b/drivers/tty/vt/vt.c
  		new = old ^ vc->vc_complement_mask;
  		scr_writew(new, p);
  		if (con_should_update(vc)) {
-+			u32 glyph = new;
-+
  			oldx = (offset >> 1) % vc->vc_cols;
  			oldy = (offset >> 1) / vc->vc_cols;
 -			con_putc(vc, new, oldy, oldx);
 +#ifdef CONFIG_FONT_CJK
-+			if (IS_ENABLED(CONFIG_FONT_CJK))
-+				glyph |= old_utf << 16;
++			if (IS_ENABLED(CONFIG_FONT_CJK)) {
++				u16 glyph[2] = { new, old_utf };
++				vc->vc_sw->con_putcs(vc, glyph, 1, oldy, oldx);
++			} else
 +#endif
-+			con_putc(vc, glyph, oldy, oldx);
++				con_putc(vc, new, oldy, oldx);
  		}
  		notify_update(vc);
  	}
@@ -612,7 +612,7 @@ diff --git a/drivers/video/fbdev/core/fbcon_cw.c b/drivers/video/fbdev/core/fbco
  	u32 vxres = GETVXRES(par->p, info);
  
  	if (!par->rotated.buf)
-@@ -222,12 +242,20 @@
+@@ -222,12 +242,19 @@
  
   	c = scr_readw((u16 *) vc->vc_pos);
  	attribute = get_attribute(info, c);
@@ -811,7 +811,7 @@ diff --git a/drivers/video/fbdev/core/fbcon_ud.c b/drivers/video/fbdev/core/fbco
  	u32 vyres = GETVYRES(par->p, info);
  	u32 vxres = GETVXRES(par->p, info);
  
-@@ -269,12 +299,20 @@
+@@ -269,12 +299,19 @@
  
   	c = scr_readw((u16 *) vc->vc_pos);
  	attribute = get_attribute(info, c);
