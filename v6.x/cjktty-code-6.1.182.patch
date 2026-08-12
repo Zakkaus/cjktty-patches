@@ -38,13 +38,14 @@ index 981d2bf..a281dbb 100644
  /* Called  from the keyboard irq path.. */
  static inline void scrolldelta(int lines)
  {
-@@ -639,6 +655,12 @@
+@@ -639,6 +655,13 @@
  	}
  	scr_memmovew(d, s, (b - t - nr) * vc->vc_size_row);
  	scr_memsetw(clear, vc->vc_video_erase_char, vc->vc_size_row * nr);
 +	if (IS_ENABLED(CONFIG_FONT_CJK)) {
 +		d += (vc->vc_screenbuf_size >> 1);
 +		s += (vc->vc_screenbuf_size >> 1);
++		clear += (vc->vc_screenbuf_size >> 1);
 +		scr_memmovew(d, s, (b - t - nr) * vc->vc_size_row);
 +		scr_memsetw(clear, 0, vc->vc_size_row * nr);
 +	}
