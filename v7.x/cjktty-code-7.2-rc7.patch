@@ -949,7 +949,7 @@ diff --git a/lib/fonts/fonts.c b/lib/fonts/fonts.c
 diff --git a/lib/fonts/Kconfig b/lib/fonts/Kconfig
 --- a/lib/fonts/Kconfig
 +++ b/lib/fonts/Kconfig
-@@ -139,6 +139,31 @@
+@@ -139,6 +139,38 @@
  	help
  	  This font is useful for small displays (OLED).
  
@@ -963,9 +963,12 @@ diff --git a/lib/fonts/Kconfig b/lib/fonts/Kconfig
 +	select CONSOLE_TRANSLATIONS
 +	default y if !SPARC
 +	help
-+	  This is a high resolution console font that covers Unicode Basic
-+	  Multilingual Plane (BMP), mostly is CJK font. If you want basic Unicode
-+	  support on the VT console, say Y.
++	  A 16x16 console font covering the Unicode Basic Multilingual Plane,
++	  so the framebuffer console can display Chinese, Japanese and Korean
++	  text. Each glyph occupies two 8x16 cells, and the font data adds
++	  about 2 MiB to the kernel image.
++
++	  If unsure, say N.
 +
 +config FONT_CJK_32x32
 +	bool "CJK 32x32 font" if FONTS
@@ -974,9 +977,13 @@ diff --git a/lib/fonts/Kconfig b/lib/fonts/Kconfig
 +	select CONSOLE_TRANSLATIONS
 +	default n
 +	help
-+	  This is a more higher resolution console font that covers Unicode Basic
-+	  Multilingual Plane (BMP), mostly is CJK font. If you want basic Unicode
-+	  support on the VT console for a high res monitor, say Y.
++	  A 32x32 console font covering the Unicode Basic Multilingual Plane,
++	  for screens on which the 16x16 font is too small to read. Each glyph
++	  occupies two 16x32 cells and the data adds about 8 MiB to the kernel
++	  image. The glyphs come from a separate data patch; without it this
++	  option compiles an empty font.
++
++	  If unsure, say N.
 +
  config FONT_AUTOSELECT
  	def_bool y
