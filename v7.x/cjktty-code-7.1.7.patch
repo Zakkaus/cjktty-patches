@@ -1,11 +1,15 @@
 diff --git a/drivers/tty/vt/selection.c b/drivers/tty/vt/selection.c
 --- a/drivers/tty/vt/selection.c
 +++ b/drivers/tty/vt/selection.c
-@@ -242,6 +242,8 @@
+@@ -242,6 +242,12 @@
  			}
  			obp = bp;
  		}
-+		if (IS_ENABLED(CONFIG_FONT_CJK) && c > 0x80)
++		/* A CJK glyph owns two cells and the second holds 0xfe, so skip
++		 * on the marker rather than on the codepoint: U+00E9 is narrow.
++		 */
++		if (IS_ENABLED(CONFIG_FONT_CJK) && i + 2 <= vc_sel.end &&
++		    (screen_glyph(vc_sel.cons, i + 2) & 0xff) == 0xfe)
 +			i += 2;
  	}
  	vc_sel.buf_len = bp - vc_sel.buffer;
@@ -78,7 +82,7 @@ diff --git a/drivers/tty/vt/vt.c b/drivers/tty/vt/vt.c
  		old = scr_readw(p);
 +#ifdef CONFIG_FONT_CJK
 +		if (IS_ENABLED(CONFIG_FONT_CJK))
-+			old_utf = scr_readw(screenpos(vc, offset, true));
++			old_utf = scr_readw(screenpos_utf8(vc, offset, true));
 +#endif
  		new = old ^ vc->vc_complement_mask;
  		scr_writew(new, p);

@@ -2,11 +2,15 @@ diff --git a/drivers/tty/vt/selection.c b/drivers/tty/vt/selection.c
 index f245a5a..7c9ed76 100644
 --- a/drivers/tty/vt/selection.c
 +++ b/drivers/tty/vt/selection.c
-@@ -220,6 +220,8 @@
+@@ -220,6 +220,12 @@
  			}
  			obp = bp;
  		}
-+		if (IS_ENABLED(CONFIG_FONT_CJK) && c > 0x80)
++		/* A CJK glyph owns two cells and the second holds 0xfe, so skip
++		 * on the marker rather than on the codepoint: U+00E9 is narrow.
++		 */
++		if (IS_ENABLED(CONFIG_FONT_CJK) && i + 2 <= vc_sel.end &&
++		    (screen_glyph(vc_sel.cons, i + 2) & 0xff) == 0xfe)
 +			i += 2;
  	}
  	vc_sel.buf_len = bp - vc_sel.buffer;
