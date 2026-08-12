@@ -16,47 +16,116 @@ index f245a5a..7c9ed76 100644
  	vc_sel.buf_len = bp - vc_sel.buffer;
  
 diff --git a/drivers/tty/vt/vt.c b/drivers/tty/vt/vt.c
-index d04a162..9e6c71d 100644
 --- a/drivers/tty/vt/vt.c
 +++ b/drivers/tty/vt/vt.c
-@@ -297,6 +297,22 @@
+@@ -297,6 +297,13 @@
  	return p;
  }
  
-+#ifdef CONFIG_FONT_CJK
-+static inline unsigned short *screenpos_utf8(const struct vc_data *vc, int offset,
-+		bool viewed)
++static inline unsigned short *screenpos_utf8(const struct vc_data *vc,
++		unsigned int offset)
 +{
-+	unsigned short *p;
-+
-+	if (!viewed)
-+		p = (unsigned short *)(vc->vc_origin + offset + vc->vc_screenbuf_size);
-+	else if (!vc->vc_sw->con_screen_pos)
-+		p = (unsigned short *)(vc->vc_visible_origin + offset + vc->vc_screenbuf_size);
-+	else
-+		p = vc->vc_sw->con_screen_pos(vc, -offset - 1);
-+	return p;
++	return (unsigned short *)((u8 *)vc->vc_screenbuf +
++			vc->vc_screenbuf_size + offset);
 +}
-+#endif
 +
  /* Called  from the keyboard irq path.. */
  static inline void scrolldelta(int lines)
  {
-@@ -639,6 +655,13 @@
- 	}
- 	scr_memmovew(d, s, (b - t - nr) * vc->vc_size_row);
- 	scr_memsetw(clear, vc->vc_video_erase_char, vc->vc_size_row * nr);
+@@ -375,6 +382,13 @@
+ 
+ 	if (uniscr)
+ 		uniscr->lines[vc->state.y][vc->state.x] = uc;
 +	if (IS_ENABLED(CONFIG_FONT_CJK)) {
-+		d += (vc->vc_screenbuf_size >> 1);
-+		s += (vc->vc_screenbuf_size >> 1);
-+		clear += (vc->vc_screenbuf_size >> 1);
-+		scr_memmovew(d, s, (b - t - nr) * vc->vc_size_row);
-+		scr_memsetw(clear, 0, vc->vc_size_row * nr);
++		unsigned int offset = vc->state.y * vc->vc_size_row +
++				      vc->state.x * 2;
++
++		scr_writew(uc <= 0xffff ? uc : 0xfffd,
++			   screenpos_utf8(vc, offset));
 +	}
  }
  
- static void do_update_region(struct vc_data *vc, unsigned long start, int count)
-@@ -806,6 +828,9 @@
+ static void vc_uniscr_insert(struct vc_data *vc, unsigned int nr)
+@@ -388,6 +402,14 @@
+ 		memmove(&ln[x + nr], &ln[x], (cols - x - nr) * sizeof(*ln));
+ 		memset32(&ln[x], ' ', nr);
+ 	}
++	if (IS_ENABLED(CONFIG_FONT_CJK)) {
++		unsigned short *ln = screenpos_utf8(vc,
++				vc->state.y * vc->vc_size_row);
++		unsigned int x = vc->state.x, cols = vc->vc_cols;
++
++		scr_memmovew(&ln[x + nr], &ln[x], (cols - x - nr) * 2);
++		scr_memsetw(&ln[x], 0, nr * 2);
++	}
+ }
+ 
+ static void vc_uniscr_delete(struct vc_data *vc, unsigned int nr)
+@@ -401,6 +423,14 @@
+ 		memmove(&ln[x], &ln[x + nr], (cols - x - nr) * sizeof(*ln));
+ 		memset32(&ln[cols - nr], ' ', nr);
+ 	}
++	if (IS_ENABLED(CONFIG_FONT_CJK)) {
++		unsigned short *ln = screenpos_utf8(vc,
++				vc->state.y * vc->vc_size_row);
++		unsigned int x = vc->state.x, cols = vc->vc_cols;
++
++		scr_memmovew(&ln[x], &ln[x + nr], (cols - x - nr) * 2);
++		scr_memsetw(&ln[cols - nr], 0, nr * 2);
++	}
+ }
+ 
+ static void vc_uniscr_clear_line(struct vc_data *vc, unsigned int x,
+@@ -413,12 +443,16 @@
+ 
+ 		memset32(&ln[x], ' ', nr);
+ 	}
++	if (IS_ENABLED(CONFIG_FONT_CJK))
++		scr_memsetw(screenpos_utf8(vc,
++			vc->state.y * vc->vc_size_row + x * 2), 0, nr * 2);
+ }
+ 
+ static void vc_uniscr_clear_lines(struct vc_data *vc, unsigned int y,
+ 				  unsigned int nr)
+ {
+ 	struct uni_screen *uniscr = get_vc_uniscr(vc);
++	unsigned int first = y, count = nr;
+ 
+ 	if (uniscr) {
+ 		unsigned int cols = vc->vc_cols;
+@@ -426,12 +460,31 @@
+ 		while (nr--)
+ 			memset32(uniscr->lines[y++], ' ', cols);
+ 	}
++	if (IS_ENABLED(CONFIG_FONT_CJK))
++		scr_memsetw(screenpos_utf8(vc, first * vc->vc_size_row), 0,
++			      count * vc->vc_size_row);
+ }
+ 
+ static void vc_uniscr_scroll(struct vc_data *vc, unsigned int t, unsigned int b,
+ 			     enum con_scroll dir, unsigned int nr)
+ {
+ 	struct uni_screen *uniscr = get_vc_uniscr(vc);
++	unsigned int rows = b - t;
++
++	if (IS_ENABLED(CONFIG_FONT_CJK)) {
++		unsigned int dst = t, src = t + nr, clear = b - nr;
++
++		if (dir == SM_DOWN) {
++			dst = t + nr;
++			src = t;
++			clear = t;
++		}
++		scr_memmovew(screenpos_utf8(vc, dst * vc->vc_size_row),
++			      screenpos_utf8(vc, src * vc->vc_size_row),
++			      (rows - nr) * vc->vc_size_row);
++		scr_memsetw(screenpos_utf8(vc, clear * vc->vc_size_row), 0,
++			      nr * vc->vc_size_row);
++	}
+ 
+ 	if (uniscr) {
+ 		unsigned int i, j, k, sz, d, clear;
+@@ -806,6 +859,9 @@
  {
  	static int old_offset = -1;
  	static unsigned short old;
@@ -66,7 +135,7 @@ index d04a162..9e6c71d 100644
  	static unsigned short oldx, oldy;
  
  	WARN_CONSOLE_UNLOCKED();
-@@ -813,8 +838,15 @@
+@@ -813,8 +869,15 @@
  	if (old_offset != -1 && old_offset >= 0 &&
  	    old_offset < vc->vc_screenbuf_size) {
  		scr_writew(old, screenpos(vc, old_offset, true));
@@ -84,13 +153,13 @@ index d04a162..9e6c71d 100644
  		notify_update(vc);
  	}
  
-@@ -826,12 +858,22 @@
+@@ -826,12 +889,22 @@
  		unsigned short *p;
  		p = screenpos(vc, offset, true);
  		old = scr_readw(p);
 +#ifdef CONFIG_FONT_CJK
 +		if (IS_ENABLED(CONFIG_FONT_CJK))
-+			old_utf = scr_readw(screenpos_utf8(vc, offset, true));
++			old_utf = scr_readw(screenpos_utf8(vc, offset));
 +#endif
  		new = old ^ vc->vc_complement_mask;
  		scr_writew(new, p);
@@ -108,7 +177,7 @@ index d04a162..9e6c71d 100644
  		}
  		notify_update(vc);
  	}
-@@ -1145,7 +1187,10 @@
+@@ -1145,7 +1218,10 @@
  	    vc->vc_screenbuf_size > KMALLOC_MAX_SIZE || !vc->vc_screenbuf_size)
  		goto err_free;
  	err = -ENOMEM;
@@ -120,15 +189,18 @@ index d04a162..9e6c71d 100644
  	if (!vc->vc_screenbuf)
  		goto err_free;
  
-@@ -1199,6 +1244,7 @@
+@@ -1197,8 +1273,10 @@
+ 				unsigned int cols, unsigned int lines)
+ {
  	unsigned long old_origin, new_origin, new_scr_end, rlth, rrem, err = 0;
++	unsigned long old_utf = 0, new_utf = 0;
  	unsigned long end;
  	unsigned int old_rows, old_row_size, first_copied_row;
 +	unsigned int old_screen_size;
  	unsigned int new_cols, new_rows, new_row_size, new_screen_size;
  	unsigned int user;
  	unsigned short *oldscreen, *newscreen;
-@@ -1242,7 +1288,10 @@
+@@ -1242,7 +1320,10 @@
  
  	if (new_screen_size > KMALLOC_MAX_SIZE || !new_screen_size)
  		return -EINVAL;
@@ -140,43 +212,50 @@ index d04a162..9e6c71d 100644
  	if (!newscreen)
  		return -ENOMEM;
  
-@@ -1259,6 +1308,8 @@
+@@ -1259,6 +1340,9 @@
  
  	old_rows = vc->vc_rows;
  	old_row_size = vc->vc_size_row;
++	oldscreen = vc->vc_screenbuf;
 +	if (IS_ENABLED(CONFIG_FONT_CJK))
 +		old_screen_size = old_row_size * old_rows;
  
  	err = resize_screen(vc, new_cols, new_rows, user);
  	if (err) {
-@@ -1307,15 +1358,26 @@
+@@ -1296,6 +1380,11 @@
+ 	} else
+ 		first_copied_row = 0;
+ 	end = old_origin + old_row_size * min(old_rows, new_rows);
++	if (IS_ENABLED(CONFIG_FONT_CJK)) {
++		old_utf = (unsigned long)oldscreen + old_screen_size +
++			  first_copied_row * old_row_size;
++		new_utf = (unsigned long)newscreen + new_screen_size;
++	}
+ 
+ 	vc_uniscr_copy_area(new_uniscr, new_cols, new_rows,
+ 			    get_vc_uniscr(vc), rlth/2, first_copied_row,
+@@ -1307,6 +1396,12 @@
  	while (old_origin < end) {
  		scr_memcpyw((unsigned short *) new_origin,
  			    (unsigned short *) old_origin, rlth);
-+		if (IS_ENABLED(CONFIG_FONT_CJK))
-+			scr_memcpyw((unsigned short *) new_origin +
-+				    (new_screen_size >> 1),
-+				    (unsigned short *) old_origin +
-+				    (old_screen_size >> 1), rlth);
++		if (IS_ENABLED(CONFIG_FONT_CJK)) {
++			scr_memcpyw((unsigned short *)new_utf,
++				    (unsigned short *)old_utf, rlth);
++			old_utf += old_row_size;
++			new_utf += new_row_size;
++		}
  		if (rrem)
  			scr_memsetw((void *)(new_origin + rlth),
  				    vc->vc_video_erase_char, rrem);
-+		if (IS_ENABLED(CONFIG_FONT_CJK) && rrem)
-+			scr_memsetw((void *)(new_origin + rlth + (new_screen_size)),
-+				    vc->vc_video_erase_char, rrem);
- 		old_origin += old_row_size;
- 		new_origin += new_row_size;
- 	}
+@@ -1316,7 +1411,6 @@
  	if (new_scr_end > new_origin)
  		scr_memsetw((void *)new_origin, vc->vc_video_erase_char,
  			    new_scr_end - new_origin);
-+	if (IS_ENABLED(CONFIG_FONT_CJK) && new_scr_end > new_origin)
-+		scr_memsetw((void *)new_origin + (new_screen_size), vc->vc_video_erase_char,
-+			    new_scr_end - new_origin);
- 	oldscreen = vc->vc_screenbuf;
+-	oldscreen = vc->vc_screenbuf;
  	vc->vc_screenbuf = newscreen;
  	vc->vc_screenbuf_size = new_screen_size;
-@@ -2825,6 +2887,8 @@
+ 	set_origin(vc);
+@@ -2825,6 +2919,8 @@
  			 * end up with having question marks only.
  			 */
  			tc = c;
@@ -185,7 +264,7 @@ index d04a162..9e6c71d 100644
  		} else {
  			/*
  			 * Display U+FFFD. If it's not found, display an inverse
-@@ -2844,6 +2908,14 @@
+@@ -2844,6 +2940,14 @@
  	}
  
  	next_c = c;
@@ -200,17 +279,7 @@ index d04a162..9e6c71d 100644
  	while (1) {
  		if (vc->vc_need_wrap || vc->vc_decim)
  			con_flush(vc, draw);
-@@ -2861,6 +2933,9 @@
- 		tc |= (vc_attr << 8) & ~himask;
- 
- 		scr_writew(tc, (u16 *)vc->vc_pos);
-+		if (IS_ENABLED(CONFIG_FONT_CJK))
-+			scr_writew(next_c, (u16 *)vc->vc_pos +
-+				   (vc->vc_screenbuf_size >> 1));
- 
- 		if (con_should_update(vc) && draw->x < 0) {
- 			draw->x = vc->state.x;
-@@ -2877,11 +2952,17 @@
+@@ -2877,11 +2981,17 @@
  		if (!--width)
  			break;
  
@@ -228,7 +297,7 @@ index d04a162..9e6c71d 100644
  	}
  	notify_write(vc, c);
  
-@@ -2927,6 +3008,10 @@
+@@ -2927,6 +3037,10 @@
  	if (con_is_fg(vc))
  		hide_cursor(vc);
  
@@ -239,7 +308,7 @@ index d04a162..9e6c71d 100644
  	param.vc = vc;
  
  	while (!tty->stopped && count) {
-@@ -3531,7 +3616,12 @@
+@@ -3531,7 +3645,12 @@
  		tty_port_init(&vc->port);
  		visual_init(vc, currcons, 1);
  		/* Assuming vc->vc_{cols,rows,screenbuf_size} are sane here. */
@@ -253,13 +322,13 @@ index d04a162..9e6c71d 100644
  		vc_init(vc, vc->vc_rows, vc->vc_cols,
  			currcons || !vc->vc_sw->con_save_screen);
  	}
-@@ -4743,6 +4833,14 @@
+@@ -4743,6 +4862,14 @@
  	u16 w = scr_readw(screenpos(vc, offset, true));
  	u16 c = w & 0xff;
  
 +#ifdef CONFIG_FONT_CJK
 +	if (IS_ENABLED(CONFIG_FONT_CJK)) {
-+		u16 c_utf = scr_readw(screenpos_utf8(vc, offset, true));
++		u16 c_utf = scr_readw(screenpos_utf8(vc, offset));
 +
 +		if ((c == 0xff || c == 0xfe) && c_utf)
 +			return c_utf;
@@ -269,7 +338,6 @@ index d04a162..9e6c71d 100644
  		c |= 0x100;
  	return c;
 diff --git a/drivers/video/fbdev/core/bitblit.c b/drivers/video/fbdev/core/bitblit.c
-index 9725ecd..151a706 100644
 --- a/drivers/video/fbdev/core/bitblit.c
 +++ b/drivers/video/fbdev/core/bitblit.c
 @@ -16,6 +16,9 @@
@@ -282,7 +350,7 @@ index 9725ecd..151a706 100644
  #include <asm/types.h>
  #include "fbcon.h"
  
-@@ -43,6 +46,55 @@
+@@ -43,6 +46,64 @@
  	}
  }
  
@@ -291,7 +359,8 @@ index 9725ecd..151a706 100644
 +{
 +	unsigned long p = (unsigned long) s;
 +	if (p >= vc->vc_origin && p < vc->vc_scr_end)
-+		return scr_readw((u16 *) (p + vc->vc_screenbuf_size));
++		return scr_readw((u16 *)((u8 *)vc->vc_screenbuf +
++			vc->vc_screenbuf_size + p - vc->vc_origin));
 +	else
 +		return scr_readw(s + 1);
 +}
@@ -303,9 +372,10 @@ index 9725ecd..151a706 100644
 +	u16 c_utf;
 +	u16 ch = scr_readw(s) & charmask;
 +	u32 cellsize_utf = (cellsize < 64) ? 16 : 64;
++	size_t offset;
 +	void *fontdata;
 +	char *fontname = (cellsize < 64) ? "CJK16x16" : "CJK32x32";
-+	const struct font_desc *font;
++	const struct font_desc *font = NULL;
 +
 +	fontdata = ops ? ops->fontbuffer : vc->vc_font.data;
 +	if (ch >= vc->vc_font.charcount)
@@ -325,10 +395,17 @@ index 9725ecd..151a706 100644
 +	}
 +	if (fontdata) {
 +		c_utf = utf8_pos(vc, s);
-+		if (ch == 0xff)
-+			src = fontdata + (c_utf * cellsize_utf * 2);
-+		else
-+			src = fontdata + (c_utf * cellsize_utf * 2 + cellsize_utf);
++		offset = (size_t)c_utf * cellsize_utf * 2;
++		if (ch == 0xfe)
++			offset += cellsize_utf;
++		if (ops && offset + cellsize_utf > ops->fd_size_utf)
++			return src;
++		if (font && c_utf >= font->charcount)
++			return src;
++		if (!ops && !font &&
++		    offset + cellsize_utf > vc->vc_font.charcount * cellsize)
++			return src;
++		src = fontdata + offset;
 +	}
 +
 +	return src;
@@ -338,7 +415,7 @@ index 9725ecd..151a706 100644
  static void bit_bmove(struct vc_data *vc, struct fb_info *info, int sy,
  		      int sx, int dy, int dx, int height, int width)
  {
-@@ -84,11 +136,18 @@
+@@ -84,11 +145,18 @@
  	u8 *src;
  
  	while (cnt--) {
@@ -362,7 +439,7 @@ index 9725ecd..151a706 100644
  
  		if (attr) {
  			update_attr(buf, src, attr, vc);
-@@ -123,11 +182,18 @@
+@@ -123,11 +191,18 @@
  	u8 *src;
  
  	while (cnt--) {
@@ -386,7 +463,7 @@ index 9725ecd..151a706 100644
  
  		if (attr) {
  			update_attr(buf, src, attr, vc);
-@@ -276,7 +342,14 @@
+@@ -276,7 +351,14 @@
  
   	c = scr_readw((u16 *) vc->vc_pos);
  	attribute = get_attribute(info, c);
@@ -402,7 +479,7 @@ index 9725ecd..151a706 100644
  
  	if (ops->cursor_state.image.data != src ||
  	    ops->cursor_reset) {
-@@ -433,4 +506,3 @@
+@@ -433,4 +515,3 @@
  }
  
  EXPORT_SYMBOL(fbcon_set_bitops);
@@ -648,7 +725,6 @@ index a34cbe8..a18e47a 100644
  	if (ops->cursor_state.image.data != src ||
  	    ops->cursor_reset) {
 diff --git a/drivers/video/fbdev/core/fbcon_rotate.c b/drivers/video/fbdev/core/fbcon_rotate.c
-index ac72d4f..881dd1f 100644
 --- a/drivers/video/fbdev/core/fbcon_rotate.c
 +++ b/drivers/video/fbdev/core/fbcon_rotate.c
 @@ -10,6 +10,10 @@
@@ -662,7 +738,7 @@ index ac72d4f..881dd1f 100644
  #include <linux/string.h>
  #include <linux/fb.h>
  #include <linux/vt_kern.h>
-@@ -18,6 +22,70 @@
+@@ -18,6 +22,78 @@
  #include "fbcon.h"
  #include "fbcon_rotate.h"
  
@@ -678,8 +754,10 @@ index ac72d4f..881dd1f 100644
 +	int cellsize = ((vc->vc_font.width + 7)/8) * vc->vc_font.height;
 +	char *fontname = (cellsize < 64) ? "CJK16x16" : "CJK32x32";
 +	const struct font_desc *font = find_font(fontname);
-+	if (!font || !font->data)
-+	    return err;
++	if (!font || !font->data) {
++		err = -ENOENT;
++		goto invalidate;
++	}
 +
 +	src = font->data;
 +	len = font->charcount;
@@ -691,7 +769,7 @@ index ac72d4f..881dd1f 100644
 +
 +		if (dst == NULL) {
 +			err = -ENOMEM;
-+			return err;
++			goto invalidate;
 +		}
 +
 +		ops->fd_size_utf = d_cellsize * len;
@@ -727,13 +805,19 @@ index ac72d4f..881dd1f 100644
 +	}
 +
 +	return err;
++
++invalidate:
++	kvfree(ops->fontbuffer_utf);
++	ops->fontbuffer_utf = NULL;
++	ops->fd_size_utf = 0;
++	return err;
 +}
 +#endif
 +
  static int fbcon_rotate_font(struct fb_info *info, struct vc_data *vc)
  {
  	struct fbcon_ops *ops = info->fbcon_par;
-@@ -46,11 +114,21 @@
+@@ -46,11 +122,21 @@
  		info->fbops->fb_sync(info);
  
  	if (ops->fd_size < d_cellsize * len) {
@@ -757,7 +841,7 @@ index ac72d4f..881dd1f 100644
  
  		if (dst == NULL) {
  			err = -ENOMEM;
-@@ -92,6 +170,11 @@
+@@ -92,6 +178,11 @@
  		break;
  	}
  
