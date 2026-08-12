@@ -632,8 +632,7 @@ diff --git a/drivers/video/fbdev/core/fbcon_cw.c b/drivers/video/fbdev/core/fbco
 -		par->cursor_state.image.data = src;
 -		cursor.set |= FB_CUR_SETIMAGE;
 +		par->cursor_state.image.data = (u8 *)src;
-+		if (!IS_ENABLED(CONFIG_FONT_CJK))
-+			cursor.set |= FB_CUR_SETIMAGE;
++		cursor.set |= FB_CUR_SETIMAGE;
  	}
  
  	if (attribute) {
@@ -832,8 +831,7 @@ diff --git a/drivers/video/fbdev/core/fbcon_ud.c b/drivers/video/fbdev/core/fbco
 -		par->cursor_state.image.data = src;
 -		cursor.set |= FB_CUR_SETIMAGE;
 +		par->cursor_state.image.data = (u8 *)src;
-+		if (!IS_ENABLED(CONFIG_FONT_CJK))
-+			cursor.set |= FB_CUR_SETIMAGE;
++		cursor.set |= FB_CUR_SETIMAGE;
  	}
  
  	if (attribute) {
