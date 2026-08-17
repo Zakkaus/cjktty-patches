@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+from console_probe import rebind_command
+
 PROMPT = r"cjk> "
 
 
@@ -84,8 +86,12 @@ def main(out_dir: str, timeout: float) -> int:
     con.run("for i in 1 2 3 4 5 6 7 8; do setfont; setfont /usr/share/consolefonts/*.psf* 2>/dev/null || true; done", 300)
     con.run("for i in $(seq 1 20); do chvt 2; chvt 3; chvt 1; done", 300)
     con.run("for r in 0 1 2 3 0 1 2 3; do echo $r > /sys/class/graphics/fbcon/rotate_all; done", 300)
-    con.run("for i in 1 2 3; do for c in /sys/class/vtconsole/vtcon*; do "
-            "grep -q 'frame buffer' $c/name && { echo 0 > $c/bind; sleep 1; echo 1 > $c/bind; sleep 1; }; done; done", 300)
+    # Unbind and rebind three times, proving each write took effect: the
+    # earlier loop matched with && and a trailing sleep, so it reported success
+    # without ever reaching fbcon_release().
+    for _round in range(3):
+        con.run(rebind_command(0), 300)
+        con.run(rebind_command(1), 300)
     con.run("for i in $(seq 1 60); do printf '\\u4e2d\\u6587\\u63a7\\u5236\\u53f0\\u663e\\u793a\\u6d4b\\u8bd5 %s\\n' $i; done > /dev/tty1", 120)
     con.run("for s in '80 25' '100 30' '80 25'; do stty -F /dev/tty1 cols ${s% *} rows ${s#* } 2>/dev/null || true; done")
 
