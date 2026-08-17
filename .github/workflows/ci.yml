@@ -39,6 +39,9 @@ jobs:
       - name: Test CI kernel cache paths
         run: python3 tools/test-ci-cache.py
 
+      - name: Test the rotated console cell size
+        run: python3 tools/test-console-cell.py
+
       - name: Check the split patches still match their combined form
         run: python3 tools/test-split-matches-combined.py
 
