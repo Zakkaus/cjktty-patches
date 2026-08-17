@@ -25,6 +25,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Type-check the tools
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet mypy==2.2.0
+          python3 -m mypy tools
+
       - name: Test patch selection
         run: python3 tools/test-patch-selection.py
 
