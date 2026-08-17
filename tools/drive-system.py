@@ -97,16 +97,28 @@ def screenshot(monitor: Path, target: Path) -> None:
     sock.close()
 
 
-def check_rotated(screenshot_path: Path) -> None:
+def check_rotated(screenshot_path: Path, cell: str) -> None:
     checker = Path(__file__).with_name("check-console.py")
     result = subprocess.run(
-        [sys.executable, str(checker), "--rotated", str(screenshot_path)],
+        [
+            sys.executable,
+            str(checker),
+            "--rotated",
+            "--cell",
+            cell,
+            str(screenshot_path),
+        ],
         check=False,
     )
     if result.returncode:
         raise Failed(
             f"{screenshot_path.name} did not match the rotated built-in CJK glyphs"
         )
+
+
+def console_cell() -> str:
+    """check-console.py samples by cell, and --cjk32 boots a 16x32 base font."""
+    return os.environ.get("CJKTTY_CONSOLE_CELL", "8x16")
 
 
 def socket_path(out: Path, environment: str, filename: str) -> Path:
@@ -239,7 +251,7 @@ def main(
         screenshot(monitor, built_in_rotated)
         console.run("echo 0 > /sys/class/graphics/fbcon/rotate_all; sleep 2")
         console.run('chvt 1; sleep 1; test "$(fgconsole)" = 1')
-        check_rotated(built_in_rotated)
+        check_rotated(built_in_rotated, console_cell())
 
         # The paths the patch changes: font reload, VT switch, and the release
         # path that frees the CJK buffers.

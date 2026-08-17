@@ -306,8 +306,13 @@ driver_args=("$out" "$boot_timeout")
 [ $bootloader -eq 1 ] && driver_args+=(--bootloader "$kernel_release")
 test_font=
 [ "$cjk32" = 1 ] && test_font=/usr/share/consolefonts/latarcyrheb-sun32.psfu.gz
+# --cjk32 turns FONT_8x16 off and FONT_TER16x32 on, so the boot console is
+# already 16x32 before the driver runs setfont.
+cell=8x16
+[ "$cjk32" = 1 ] && cell=16x32
 CJKTTY_SERIAL_SOCKET="$serial_socket" CJKTTY_MONITOR_SOCKET="$monitor_socket" \
 	CJKTTY_TEST_FONT="$test_font" CJKTTY_INIT_SYSTEM="$init_system" \
+	CJKTTY_CONSOLE_CELL="$cell" \
 	python3 "$repo/tools/drive-system.py" "${driver_args[@]}"
 result=$?
 
@@ -319,8 +324,6 @@ step "console"
 [ -s "$out/login.ppm" ] || die "no login screenshot was captured"
 [ -s "$out/console.ppm" ] || die "no console screenshot was captured"
 [ -s "$out/rotated.ppm" ] || die "no rotated screenshot was captured"
-cell=8x16
-[ "$cjk32" = 1 ] && cell=16x32
 if [ $no_patch -eq 0 ]; then
 	python3 "$repo/tools/check-console.py" --cell "$cell" "$out/console.ppm" ||
 		die "$version: the console did not render CJK after the DRM handover"
