@@ -12,6 +12,7 @@ from typing import Any
 
 TOOLS = Path(__file__).resolve().parent
 SCRIPT = TOOLS / "ci-matrix.py"
+Case = tuple[str, list[str], dict[str, Any]]
 EMPTY = {
     "apply": {"include": []},
     "boot": {"include": []},
@@ -48,7 +49,7 @@ def supported_rows() -> list[dict[str, str]]:
 NEWEST = supported_rows()[0]
 
 
-def newest_case(label: str, changed: list[str], name: str, cjk32: bool) -> tuple:
+def newest_case(label: str, changed: list[str], name: str, cjk32: bool) -> Case:
     """A change to a shared file is tested against the newest maintained kernel."""
     apply_patches = [NEWEST["combined"]]
     if cjk32:
@@ -81,7 +82,7 @@ def newest_case(label: str, changed: list[str], name: str, cjk32: bool) -> tuple
             "boot_count": 1,
         },
     )
-CASES = (
+CASES: tuple[Case, ...] = (
     (
         "changed 5.10 patch",
         ["v5.x/cjktty-5.10.264.patch"],
