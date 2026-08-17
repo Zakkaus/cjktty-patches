@@ -47,6 +47,9 @@ jobs:
       - name: Test the rotated console cell size
         run: python3 tools/test-console-cell.py
 
+      - name: Test the fbcon rebind assertion
+        run: python3 tools/test-console-probe.py
+
       - name: Check the split patches still match their combined form
         run: python3 tools/test-split-matches-combined.py
 
