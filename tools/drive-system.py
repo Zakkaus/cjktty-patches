@@ -19,6 +19,8 @@ import socket
 import subprocess
 import sys
 import time
+
+from console_probe import rebind_command
 from pathlib import Path
 
 ANSI = re.compile(rb"\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][B0]|\x1b[=>]")
@@ -114,6 +116,18 @@ def check_rotated(screenshot_path: Path, cell: str) -> None:
         raise Failed(
             f"{screenshot_path.name} did not match the rotated built-in CJK glyphs"
         )
+
+
+def assert_vt_holds_label(console: "Console", vt: int) -> None:
+    """Read the VT back through /dev/vcs before judging what was drawn.
+
+    A screenshot that holds no glyphs cannot say whether the text never arrived
+    or the console failed to draw it; this separates the two.
+    """
+    console.run(
+        f"grep -aq 'rotated:' /dev/vcs{vt}",
+        timeout=30.0,
+    )
 
 
 def console_cell() -> str:
@@ -246,6 +260,15 @@ def main(
         console.run("printf '\\033[2J\\033[H' > /dev/tty2; "
                     "echo 'rotated:  中文控制台显示测试' > /dev/tty2")
         time.sleep(2)
+        assert_vt_holds_label(console, 2)
+        # What the screendump should be showing, logged beside the image: a
+        # verdict carrying no screen state produces guesses.
+        console.run(
+            "echo CJKTTY-VT fg=$(fgconsole) "
+            "rotate=$(cat /sys/class/graphics/fbcon/rotate) "
+            "vcs1=$(tr -d '\\0' < /dev/vcs1 | head -c 40) "
+            "vcs2=$(tr -d '\\0' < /dev/vcs2 | head -c 40)"
+        )
         built_in_rotated = out / "boot-font-rotated.ppm"
         built_in_rotated.unlink(missing_ok=True)
         screenshot(monitor, built_in_rotated)
@@ -271,6 +294,7 @@ def main(
         console.run("printf '\\033[2J\\033[H' > /dev/tty1; "
                     "echo 'rotated:  中文控制台显示测试' > /dev/tty1")
         time.sleep(2)
+        assert_vt_holds_label(console, 1)
         screenshot(monitor, out / "rotated.ppm")
         console.run("echo 0 > /sys/class/graphics/fbcon/rotate_all; sleep 2")
 
@@ -280,13 +304,8 @@ def main(
         # no console would otherwise succeed and the release path go unrun.
         # Count the writes that took effect, not the ones attempted: a bind that
         # fails leaves the console attached and the test would not notice.
-        bind = ("n=0; failed=0; for c in /sys/class/vtconsole/vtcon*; do "
-                "grep -q 'frame buffer' $c/name || continue; "
-                "echo {0} > $c/bind || failed=1; "
-                "[ \"$(cat $c/bind)\" = {0} ] && n=$((n+1)) || failed=1; "
-                "done; sleep 2; [ $n -gt 0 ] && [ $failed -eq 0 ]")
-        console.run(bind.format(0))
-        console.run(bind.format(1))
+        console.run(rebind_command(0))
+        console.run(rebind_command(1))
         console.run("dmesg | grep -q 'switching to colour dummy device'")
 
         kernel_log = console.run("dmesg")
