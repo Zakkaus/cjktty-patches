@@ -14,7 +14,9 @@ CASES = (
     ("bare series patch", "6.18.44", "cjktty-6.18.patch"),
     ("release candidate", "7.2-rc7", "cjktty-7.2-rc7.patch"),
     ("latest 5.10 point patch", "5.10.264", "cjktty-5.10.264.patch"),
-    ("numeric string-order trap", "6.12.200", "cjktty-6.12.102.patch"),
+    # 6.12.70 stays correct as 6.12 gains patches: string order would put
+    # "6.12.104" below "6.12.70" and pick it, numeric order stops at 6.12.63.
+    ("numeric string-order trap", "6.12.70", "cjktty-6.12.63.patch"),
 )
 
 

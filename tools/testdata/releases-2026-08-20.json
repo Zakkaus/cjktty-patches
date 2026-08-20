@@ -1,0 +1,52 @@
+{
+ "releases": [
+  {
+   "moniker": "mainline",
+   "version": "7.2",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.tar.xz"
+  },
+  {
+   "moniker": "stable",
+   "version": "7.1.9",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.1.9.tar.xz"
+  },
+  {
+   "moniker": "longterm",
+   "version": "6.18.45",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.45.tar.xz"
+  },
+  {
+   "moniker": "longterm",
+   "version": "6.12.104",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.104.tar.xz"
+  },
+  {
+   "moniker": "longterm",
+   "version": "6.6.152",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.152.tar.xz"
+  },
+  {
+   "moniker": "longterm",
+   "version": "6.1.183",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.1.183.tar.xz"
+  },
+  {
+   "moniker": "longterm",
+   "version": "5.15.216",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.216.tar.xz"
+  },
+  {
+   "moniker": "longterm",
+   "version": "5.10.265",
+   "iseol": false,
+   "source": "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.10.265.tar.xz"
+  }
+ ]
+}

@@ -84,62 +84,6 @@ def newest_case(label: str, changed: list[str], name: str, cjk32: bool) -> Case:
     )
 CASES: tuple[Case, ...] = (
     (
-        "changed 5.10 patch",
-        ["v5.x/cjktty-5.10.264.patch"],
-        {
-            "apply": {
-                "include": [
-                    {
-                        "name": "Apply Linux 5.10.264 combined patch",
-                        "version": "5.10.264",
-                        "patches": ["v5.x/cjktty-5.10.264.patch"],
-                    }
-                ]
-            },
-            "boot": {
-                "include": [
-                    {
-                        "name": "Build and boot Linux 5.10.264 combined patch",
-                        "version": "5.10.264",
-                        "patches": ["v5.x/cjktty-5.10.264.patch"],
-                        "cjk32": False, "script": "tools/test-patch.sh",
-                    }
-                ]
-            },
-            "apply_count": 1,
-            "boot_count": 1,
-        },
-    ),
-    (
-        "changed patch serving a later point release",
-        ["v6.x/cjktty-6.12.102.patch"],
-        {
-            "apply": {
-                "include": [
-                    {
-                        "name": "Apply Linux 6.12.103 combined patch",
-                        "version": "6.12.103",
-                        "patches": ["v6.x/cjktty-6.12.102.patch"],
-                    }
-                ]
-            },
-            "boot": {
-                "include": [
-                    {
-                        "name": "Build and boot Linux 6.12.103 combined patch",
-                        "version": "6.12.103",
-                        "patches": ["v6.x/cjktty-6.12.102.patch"],
-                        "cjk32": False, "script": "tools/test-patch.sh",
-                    }
-                ]
-            },
-            "apply_count": 1,
-            "boot_count": 1,
-        },
-    ),
-    ("README only", ["README.md"], EMPTY),
-    ("documentation only", ["docs/usage.md", "SUPPORTED.md", "LICENSE"], EMPTY),
-    (
         "split code patch",
         ["v6.x/cjktty-code-6.12.102.patch"],
         {
@@ -193,7 +137,68 @@ CASES: tuple[Case, ...] = (
 )
 
 
+def maintained_case(label: str, row_index: int) -> Case:
+    """A maintained patch produces one apply and one boot job for its kernel.
+
+    The patch comes from SUPPORTED.md rather than a literal, so superseding a
+    point release does not turn this into a false failure.
+    """
+    row = supported_rows()[row_index]
+    return (
+        label,
+        [row["combined"]],
+        {
+            "apply": {
+                "include": [
+                    {
+                        "name": f"Apply Linux {row['kernel']} combined patch",
+                        "version": row["kernel"],
+                        "patches": [row["combined"]],
+                    }
+                ]
+            },
+            "boot": {
+                "include": [
+                    {
+                        "name": f"Build and boot Linux {row['kernel']} combined patch",
+                        "version": row["kernel"],
+                        "patches": [row["combined"]],
+                        "cjk32": False,
+                        "script": "tools/test-patch.sh",
+                    }
+                ]
+            },
+            "apply_count": 1,
+            "boot_count": 1,
+        },
+    )
+
+
+def superseded_case() -> Case:
+    """A patch a newer point release replaced is checked but never booted."""
+    return (
+        "superseded patch is apply-only",
+        ["v6.x/cjktty-6.12.102.patch"],
+        {
+            "apply": {
+                "include": [
+                    {
+                        "name": "Apply-only Linux 6.12.102 combined patch",
+                        "version": "6.12.102",
+                        "patches": ["v6.x/cjktty-6.12.102.patch"],
+                    }
+                ]
+            },
+            "boot": {"include": []},
+            "apply_count": 1,
+            "boot_count": 0,
+        },
+    )
+
+
 CASES += (
+    maintained_case("oldest maintained patch", -1),
+    superseded_case(),
     newest_case(
         "CJK32 data patch",
         ["cjktty-add-cjk32x32-font-data.patch"],
