@@ -124,10 +124,12 @@ def assert_vt_holds_label(console: "Console", vt: int) -> None:
     A screenshot that holds no glyphs cannot say whether the text never arrived
     or the console failed to draw it; this separates the two.
     """
-    console.run(
-        f"grep -aq 'rotated:' /dev/vcs{vt}",
-        timeout=30.0,
+    held = console.run(
+        f"tr -d '\\0' < /dev/vcs{vt} | tr -s ' ' | head -c 160", timeout=30.0
     )
+    text = held.decode("utf-8", "replace") if isinstance(held, bytes) else str(held)
+    if "rotated:" not in text:
+        raise Failed(f"/dev/vcs{vt} does not hold the test line; it holds: {text.strip()!r}")
 
 
 def console_cell() -> str:
@@ -251,23 +253,23 @@ def main(
         # of a normal login screen under this kernel.
         screenshot(monitor, out / "login.ppm")
 
-        # The init service loads a user font on VT 1. VT 2 still has the
-        # kernel-selected 131072-entry CJK font, so exercise that path before
-        # this script runs setfont. The CJK line written here is the text under
-        # test.
-        console.run('chvt 2; sleep 1; test "$(fgconsole)" = 2')
+        # The init service loads a user font on VT 1. VT 7 has no getty under
+        # either init - systemd stops at NAutoVTs=6 and the OpenRC inittab at
+        # tty6 - so it still holds the kernel-selected CJK font and nothing
+        # repaints over the line written here, which is the text under test.
+        console.run('chvt 7; sleep 1; test "$(fgconsole)" = 7')
         console.run("echo 1 > /sys/class/graphics/fbcon/rotate_all; sleep 2")
-        console.run("printf '\\033[2J\\033[H' > /dev/tty2; "
-                    "echo 'rotated:  中文控制台显示测试' > /dev/tty2")
+        console.run("printf '\\033[2J\\033[H' > /dev/tty7; "
+                    "echo 'rotated:  中文控制台显示测试' > /dev/tty7")
         time.sleep(2)
-        assert_vt_holds_label(console, 2)
+        assert_vt_holds_label(console, 7)
         # What the screendump should be showing, logged beside the image: a
         # verdict carrying no screen state produces guesses.
         console.run(
             "echo CJKTTY-VT fg=$(fgconsole) "
             "rotate=$(cat /sys/class/graphics/fbcon/rotate) "
             "vcs1=$(tr -d '\\0' < /dev/vcs1 | head -c 40) "
-            "vcs2=$(tr -d '\\0' < /dev/vcs2 | head -c 40)"
+            "vcs7=$(tr -d '\\0' < /dev/vcs7 | head -c 40)"
         )
         built_in_rotated = out / "boot-font-rotated.ppm"
         built_in_rotated.unlink(missing_ok=True)
