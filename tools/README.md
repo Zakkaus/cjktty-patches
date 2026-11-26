@@ -33,6 +33,22 @@ separately and exit 2 rather than being mislabeled as patch drift.
 script does not build the kernel or render CJK; `test-patch.sh` and
 `test-system.sh` cover build and rendering.
 
+## prune-lab.py
+
+```sh
+tools/prune-lab.py --dry-run
+tools/prune-lab.py --drop-series 7.1,7.2
+```
+
+`test-patch.sh`, `test-system.sh` and `port.sh` unpack every release they
+test into `$CJKTTY_LAB` and keep the tree, its tarball, its initramfs and its
+`out-*` directories so the next run of the same release starts at once. Run
+this script at the end of every update round: it keeps the newest release of
+each series and removes every artifact of an older one, because a superseded
+release is never tested again. `--drop-series` also removes a series that is
+no longer tracked. Disk images and anything not named after a kernel version
+are left alone.
+
 ## gen-supported.py
 
 ```sh

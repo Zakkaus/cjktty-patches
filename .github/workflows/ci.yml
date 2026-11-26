@@ -56,6 +56,9 @@ jobs:
       - name: Test the split-only rule from Linux 7.3
         run: python3 tools/test-split-only.py
 
+      - name: Test the lab pruner
+        run: python3 tools/test-prune-lab.py
+
       - name: Test patch splitter
         env:
           CJKTTY_LAB: ${{ runner.temp }}/cjktty
